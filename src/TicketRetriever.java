@@ -102,7 +102,6 @@ public class TicketRetriever {
 
         if (!injectedVersion.containsKey("")) {
             ticket.injectedVersion = injectedVersion;
-            ticket.proportion = 
         }
 
 
