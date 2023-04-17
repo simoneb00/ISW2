@@ -9,10 +9,10 @@ public class Ticket {
     public String id;
     public String key;
     public HashMap<String, LocalDateTime> affectedVersions = new HashMap<>();
-    public LocalDateTime resolutionDate;
-    public LocalDateTime creationDate;
+    public LocalDateTime resolutionDate;    // fix version
+    public LocalDateTime creationDate;      // opening version
     public HashMap<String, LocalDateTime> injectedVersion = new HashMap<>();
-    public int proportion = 0;
+    public float proportion = 0;
 
 
 }

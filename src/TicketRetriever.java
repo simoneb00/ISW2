@@ -6,6 +6,7 @@ import org.codehaus.jettison.json.JSONObject;
 import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -61,6 +62,8 @@ public class TicketRetriever {
         allVersions.addAll(allVersionsHashSet);
         Collections.sort(allVersions);
         System.out.println(allVersions);
+
+        System.out.println(getProportionMean());
     }
 
     public static Ticket getTicket(JSONObject ticketInfo) throws JSONException {
@@ -102,11 +105,49 @@ public class TicketRetriever {
 
         if (!injectedVersion.containsKey("")) {
             ticket.injectedVersion = injectedVersion;
+            computeProportion(ticket);
         }
 
-
-
         return ticket;
+    }
+
+    public static float getProportionMean() {
+        float sum = 0;
+        int count = 0;
+        for (Ticket ticket : tickets) {
+            if (ticket.proportion > 0) {
+                sum += ticket.proportion;
+                count++;
+            }
+        }
+
+        System.out.println(sum);
+        System.out.println(count);
+
+        return sum/count;
+    }
+
+    /*
+     *   proportion = (fixVersion - injectedVersion)/(fixVersion - openingVersion)
+     */
+    public static void computeProportion(Ticket ticket) {
+        LocalDateTime fixVersion = ticket.resolutionDate;
+        Collection<LocalDateTime> injVersions = ticket.injectedVersion.values();
+        LocalDateTime injectedVersion = injVersions.iterator().next();
+        LocalDateTime openingVersion = ticket.creationDate;
+
+        Duration num = Duration.between(injectedVersion, fixVersion);
+        Duration den = Duration.between(openingVersion, fixVersion);
+
+        ticket.proportion = (float)num.toSeconds()/(float)den.toSeconds();
+
+        System.out.println(num);
+        System.out.println(num.toSeconds());
+        System.out.println(den);
+        System.out.println(den.toSeconds());
+        //System.out.println(33945889/42892346);
+        System.out.println((float)num.toSeconds()/(float)den.toSeconds());
+        System.out.println("-------------------------");
     }
 
     public static JSONObject readJsonFromUrl(String url) throws IOException, JSONException {
