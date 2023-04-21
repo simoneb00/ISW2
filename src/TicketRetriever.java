@@ -2,6 +2,7 @@ import entity.Ticket;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
+import src.GetReleaseInfo;
 
 import java.io.*;
 import java.net.URL;
@@ -13,14 +14,11 @@ import java.util.*;
 
 public class TicketRetriever {
     public static ArrayList<Ticket> tickets;
-    public static HashSet<LocalDateTime> allVersionsHashSet = new HashSet<>();
-    public static List<LocalDateTime> allVersions = new ArrayList<>();
-
-    // https://issues.apache.org/jira/rest/api/2/search?jql=project=bookkeeper+and+type=bug+and+(status=closed+or+status=resolved)+and+resolution=fixed
+    public static ArrayList<LocalDateTime> versions = new ArrayList<>();
 
     public static void main(String[] args) throws JSONException, IOException {
         String projectName = "BOOKKEEPER";
-        String query = "search?jql=project=" + projectName + "+and+type=bug+and+(status=closed+or+status=resolved)+and+resolution=fixed&maxResults=500";
+        String query = "search?jql=project=" + projectName + "+and+type=bug+and+(status=closed+or+status=resolved)+and+resolution=fixed&maxResults=1000";
         String url = "https://issues.apache.org/jira/rest/api/2/" + query;
 
         JSONObject json = readJsonFromUrl(url);
@@ -28,6 +26,10 @@ public class TicketRetriever {
         System.out.println(issues.length());
 
         tickets = new ArrayList<>();
+
+        versions = GetReleaseInfo.getReleaseInfo(projectName);
+
+        System.out.println(versions);
 
         for (int i = 0; i < issues.length(); i++) {
             try {
@@ -37,17 +39,17 @@ public class TicketRetriever {
             }
         }
 
-        System.out.println(url);
-
         /*
+
         int x = 0;
 
         for (Ticket ticket : tickets) {
             System.out.println(ticket.id);
             System.out.println(ticket.key);
             System.out.println(ticket.affectedVersions);
-            System.out.println(ticket.resolutionDate);
+            System.out.println(ticket.openingVersion);
             System.out.println(ticket.injectedVersion);
+            System.out.println(ticket.fixVersion);
             System.out.println('\n');
 
             if (!ticket.affectedVersions.isEmpty())
@@ -57,13 +59,20 @@ public class TicketRetriever {
         System.out.println(x);
 
          */
-        System.out.println(allVersionsHashSet);
 
-        allVersions.addAll(allVersionsHashSet);
-        Collections.sort(allVersions);
-        System.out.println(allVersions);
 
-        System.out.println(getProportionMean());
+        System.out.println("proportion mean: " + getProportionMean());
+        Proportion.estimateInjectedVersion(tickets, getProportionMean());
+
+        for (Ticket ticket : tickets) {
+            System.out.println("id: " + ticket.id);
+            System.out.println(ticket.key);
+            System.out.println("Affected versions: " + ticket.affectedVersions);
+            System.out.println("Opening version: " + ticket.openingVersion);
+            System.out.println("Injected version: " + ticket.injectedVersion);
+            System.out.println("Fix version: " + ticket.fixVersion);
+            System.out.println('\n');
+        }
     }
 
     public static Ticket getTicket(JSONObject ticketInfo) throws JSONException {
@@ -76,15 +85,18 @@ public class TicketRetriever {
 
         JSONObject fields = ticketInfo.getJSONObject("fields");
 
-        ticket.resolutionDate = LocalDateTime.parse(fields.get("resolutiondate").toString().substring(0, 21));
+        LocalDateTime resolutionDate = LocalDateTime.parse(fields.get("resolutiondate").toString().substring(0, 21));
+        ticket.fixVersion = getVersion(resolutionDate);
 
-        ticket.creationDate = LocalDateTime.parse(fields.get("created").toString().substring(0, 21));
+        LocalDateTime creationDate = LocalDateTime.parse(fields.get("created").toString().substring(0, 21));
+        ticket.openingVersion = getVersion(creationDate);
+
 
         JSONArray versions = fields.getJSONArray("versions");
 
         String name = "";
-        HashMap<String, LocalDateTime> injectedVersion = new HashMap<>();
-        injectedVersion.put(name, ticket.resolutionDate);
+        ArrayList<LocalDateTime> injectedVersion = new ArrayList<>();
+        injectedVersion.add(resolutionDate);
 
         for (int i = 0; i < versions.length(); i++) {
             JSONObject version = versions.getJSONObject(i);
@@ -92,19 +104,14 @@ public class TicketRetriever {
             LocalDate releaseDate = LocalDate.parse(version.get("releaseDate").toString());
             LocalDateTime releaseDateTime = releaseDate.atStartOfDay();
 
-            if (releaseDateTime.isBefore(ticket.resolutionDate)) {
-                ticket.affectedVersions.put(version.get("name").toString(), releaseDateTime);
-                if (injectedVersion.get(name).isAfter(releaseDateTime)) {
-                    injectedVersion.remove(name);
-                    name = version.get("name").toString();
-                    injectedVersion.put(name, releaseDateTime);
-                    allVersionsHashSet.add(injectedVersion.get(name));
-                }
+            if (releaseDateTime.isBefore(resolutionDate)) {
+                ticket.affectedVersions.add(getVersion(releaseDateTime));
             }
         }
 
-        if (!injectedVersion.containsKey("")) {
-            ticket.injectedVersion = injectedVersion;
+        if (!ticket.affectedVersions.isEmpty()) {
+            Collections.sort(ticket.affectedVersions);
+            ticket.injectedVersion = ticket.affectedVersions.get(0);
             computeProportion(ticket);
         }
 
@@ -121,34 +128,34 @@ public class TicketRetriever {
             }
         }
 
-        System.out.println(sum);
-        System.out.println(count);
-
         return sum/count;
+    }
+
+    private static int getVersion(LocalDateTime date) {
+        int i = 0;
+
+        while (versions.get(i).isBefore(date)) {
+            i++;
+        }
+
+        return i;
     }
 
     /*
      *   proportion = (fixVersion - injectedVersion)/(fixVersion - openingVersion)
      */
+
+
     public static void computeProportion(Ticket ticket) {
-        LocalDateTime fixVersion = ticket.resolutionDate;
-        Collection<LocalDateTime> injVersions = ticket.injectedVersion.values();
-        LocalDateTime injectedVersion = injVersions.iterator().next();
-        LocalDateTime openingVersion = ticket.creationDate;
+        if (ticket.fixVersion > ticket.openingVersion && ticket.fixVersion > ticket.injectedVersion && ticket.injectedVersion < ticket.openingVersion) {
+            ticket.proportion = (float)(ticket.fixVersion - ticket.injectedVersion)/(ticket.fixVersion - ticket.openingVersion);
+            System.out.println(ticket.proportion);
 
-        Duration num = Duration.between(injectedVersion, fixVersion);
-        Duration den = Duration.between(openingVersion, fixVersion);
+        }
 
-        ticket.proportion = (float)num.toSeconds()/(float)den.toSeconds();
-
-        System.out.println(num);
-        System.out.println(num.toSeconds());
-        System.out.println(den);
-        System.out.println(den.toSeconds());
-        //System.out.println(33945889/42892346);
-        System.out.println((float)num.toSeconds()/(float)den.toSeconds());
-        System.out.println("-------------------------");
     }
+
+
 
     public static JSONObject readJsonFromUrl(String url) throws IOException, JSONException {
         try (InputStream is = new URL(url).openStream()) {

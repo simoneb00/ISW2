@@ -1,17 +1,17 @@
 package entity;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class Ticket {
 
     public String id;
     public String key;
-    public HashMap<String, LocalDateTime> affectedVersions = new HashMap<>();
-    public LocalDateTime resolutionDate;    // fix version
-    public LocalDateTime creationDate;      // opening version
-    public HashMap<String, LocalDateTime> injectedVersion = new HashMap<>();
+    public ArrayList<Integer> affectedVersions = new ArrayList<>();
+    public int fixVersion;    // fix version
+    public int openingVersion;      // opening version
+    public int injectedVersion;
     public float proportion = 0;
 
 
