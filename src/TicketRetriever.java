@@ -1,20 +1,21 @@
-import entity.Ticket;
+import model.Release;
+import model.Ticket;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
 import src.GetReleaseInfo;
 
+import java.awt.desktop.SystemEventListener;
 import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
 public class TicketRetriever {
     public static ArrayList<Ticket> tickets;
-    public static ArrayList<LocalDateTime> versions = new ArrayList<>();
+    public static ArrayList<Release> releases = new ArrayList<>();
 
     public static void main(String[] args) throws JSONException, IOException {
         String projectName = "BOOKKEEPER";
@@ -27,9 +28,16 @@ public class TicketRetriever {
 
         tickets = new ArrayList<>();
 
-        versions = GetReleaseInfo.getReleaseInfo(projectName);
+        releases = GetReleaseInfo.getReleaseInfo(projectName);
 
-        System.out.println(versions);
+        for (int i = 0; i < releases.size(); i++) {
+            System.out.println(releases.get(i).getId());
+            System.out.println(releases.get(i).getName());
+            System.out.println(releases.get(i).getDate());
+            System.out.println("____________________________");
+        }
+
+
 
         for (int i = 0; i < issues.length(); i++) {
             try {
@@ -39,38 +47,28 @@ public class TicketRetriever {
             }
         }
 
-        /*
-
-        int x = 0;
-
-        for (Ticket ticket : tickets) {
-            System.out.println(ticket.id);
-            System.out.println(ticket.key);
-            System.out.println(ticket.affectedVersions);
-            System.out.println(ticket.openingVersion);
-            System.out.println(ticket.injectedVersion);
-            System.out.println(ticket.fixVersion);
-            System.out.println('\n');
-
-            if (!ticket.affectedVersions.isEmpty())
-                x++;
-        }
-
-        System.out.println(x);
-
-         */
-
 
         System.out.println("proportion mean: " + getProportionMean());
         Proportion.estimateInjectedVersion(tickets, getProportionMean());
 
         for (Ticket ticket : tickets) {
+
+            ArrayList<String> affVersionsNames = new ArrayList<>();
+
+            if (ticket.affectedVersions != null) {
+                for (int i = 0; i < ticket.affectedVersions.size(); i++) {
+                    affVersionsNames.add(ticket.affectedVersions.get(i).getName());
+                }
+            }
+
             System.out.println("id: " + ticket.id);
             System.out.println(ticket.key);
-            System.out.println("Affected versions: " + ticket.affectedVersions);
-            System.out.println("Opening version: " + ticket.openingVersion);
-            System.out.println("Injected version: " + ticket.injectedVersion);
-            System.out.println("Fix version: " + ticket.fixVersion);
+            System.out.println("Affected versions: " + affVersionsNames);
+            System.out.println("Opening version: " + ticket.openingVersion.getName());
+            if (ticket.injectedVersion != null)
+                System.out.println("Injected version: " + ticket.injectedVersion.getName());
+            else System.out.println("Injected version: " + null);
+            System.out.println("Fix version: " + ticket.fixVersion.getName());
             System.out.println('\n');
         }
     }
@@ -86,31 +84,24 @@ public class TicketRetriever {
         JSONObject fields = ticketInfo.getJSONObject("fields");
 
         LocalDateTime resolutionDate = LocalDateTime.parse(fields.get("resolutiondate").toString().substring(0, 21));
-        ticket.fixVersion = getVersion(resolutionDate);
+        ticket.fixVersion = getRelease(resolutionDate);
 
         LocalDateTime creationDate = LocalDateTime.parse(fields.get("created").toString().substring(0, 21));
-        ticket.openingVersion = getVersion(creationDate);
+        ticket.openingVersion = getRelease(creationDate);
 
 
         JSONArray versions = fields.getJSONArray("versions");
 
-        String name = "";
-        ArrayList<LocalDateTime> injectedVersion = new ArrayList<>();
-        injectedVersion.add(resolutionDate);
-
-        for (int i = 0; i < versions.length(); i++) {
-            JSONObject version = versions.getJSONObject(i);
-
-            LocalDate releaseDate = LocalDate.parse(version.get("releaseDate").toString());
-            LocalDateTime releaseDateTime = releaseDate.atStartOfDay();
-
-            if (releaseDateTime.isBefore(resolutionDate)) {
-                ticket.affectedVersions.add(getVersion(releaseDateTime));
+        if (versions.isNull(0)) {
+            // this ticket does not have the affected versions field
+            ticket.affectedVersions = null;
+        } else {
+            for (int i = 0; i < versions.length(); i++) {
+                ticket.affectedVersions.add(getRelease(LocalDate.parse(versions.getJSONObject(i).get("releaseDate").toString()).atStartOfDay()));
             }
         }
 
-        if (!ticket.affectedVersions.isEmpty()) {
-            Collections.sort(ticket.affectedVersions);
+        if (ticket.affectedVersions != null) {
             ticket.injectedVersion = ticket.affectedVersions.get(0);
             computeProportion(ticket);
         }
@@ -131,24 +122,35 @@ public class TicketRetriever {
         return sum/count;
     }
 
-    private static int getVersion(LocalDateTime date) {
+
+    private static Release getRelease(LocalDateTime date) {
+
         int i = 0;
 
-        while (versions.get(i).isBefore(date)) {
-            i++;
+        while (releases.get(i).getDate().isBefore(date)) {
+           i++;
         }
 
-        return i;
+        return releases.get(i);
     }
+
+
 
     /*
      *   proportion = (fixVersion - injectedVersion)/(fixVersion - openingVersion)
+     *
+     *   ASSUMPTION: we're considering in proportion's computation only the tickets with fixVersion > openingVersion > injectedVersion, in order to:
+     *   - avoid fixVersion = openingVersion -> proportion = infinity
+     *   - avoid fixVersion = injectedVersion -> proportion = 0
+     *   - discard invalid affectedVersions, i.e. with openingVersion > fixVersion, injectedVersion > fixVersion and injectedVersion > openingVersion
      */
 
 
     public static void computeProportion(Ticket ticket) {
-        if (ticket.fixVersion > ticket.openingVersion && ticket.fixVersion > ticket.injectedVersion && ticket.injectedVersion < ticket.openingVersion) {
-            ticket.proportion = (float)(ticket.fixVersion - ticket.injectedVersion)/(ticket.fixVersion - ticket.openingVersion);
+        if (ticket.fixVersion.getId() > ticket.openingVersion.getId()
+                && ticket.fixVersion.getId() > ticket.injectedVersion.getId()
+                && ticket.injectedVersion.getId() < ticket.openingVersion.getId()) {
+            ticket.proportion = (float)(ticket.fixVersion.getId() - ticket.injectedVersion.getId())/(ticket.fixVersion.getId() - ticket.openingVersion.getId());
             System.out.println(ticket.proportion);
 
         }
