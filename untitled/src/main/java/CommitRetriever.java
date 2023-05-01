@@ -30,6 +30,8 @@ public class CommitRetriever {
     public static LocalDateTime since = TicketRetriever.releases.get(0).getDate();
     public static LocalDateTime until = TicketRetriever.releases.get(TicketRetriever.releases.size() - 1).getDate();
 
+    private static List<RevCommit> commits = new ArrayList<>();
+
     private static Repository repository;
 
     public static void retrieveCommits() throws IOException {
@@ -40,44 +42,71 @@ public class CommitRetriever {
 
         try (Git git = new Git(repository)) {
 
-            List<RevCommit> commits = new ArrayList<>();
+            /*
+            *   retrieving all the commits
+            *   ASSUMPTION: we're discarding the last half of releases, in order to have a smaller number of commits to handle
+            */
+
+            LocalDateTime lastRelease = TicketRetriever.releases.get(Math.round(TicketRetriever.releases.size()/2)).getDate();
+
             List<Ref> branches = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
 
             for (Ref branch : branches) {
                 Iterable<RevCommit> branchCommits = git.log().add(repository.resolve(branch.getName())).call();
                 for (RevCommit commit : branchCommits) {
-                    commits.add(commit);
+                    LocalDateTime commitDate = commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime();
+                    if (commitDate.isBefore(lastRelease) || commitDate.isEqual(lastRelease))
+                        commits.add(commit);
                 }
             }
 
             System.out.println(commits.size());
 
+            System.out.println("\n\n\n\n\n\n\n\n\n\n");
+
             for (RevCommit commit : commits) {
-                System.out.println("---------------------------------------");
-                System.out.println(commit.getAuthorIdent().getWhen());
-                System.out.println(commit.getAuthorIdent());
-                System.out.println(commit.getShortMessage());
-                System.out.println(commit.getCommitTime());
-                System.out.println(commit.getName());
-                System.out.println(commit.getFooterLines());
+                System.out.println(commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime());
             }
 
+            System.out.println("\n\n\n\n\n\n\n\n\n\n");
+
             for (int i = 0; i < 14; i++) {
-                System.out.println(retrieveCommitsForRelease(commits, TicketRetriever.releases.get(i)).size());
+                System.out.println(retrieveCommitsForRelease(TicketRetriever.releases.get(i)).size());
             }
 
             for (Ticket ticket : TicketRetriever.tickets) {
-                System.out.println("Commits associated to ticket " + ticket.key + " = " + getCommitsAssociatedToTicket(commits, ticket).size());
+                System.out.println("Commits associated to ticket " + ticket.key + " = " + getCommitsAssociatedToTicket(ticket).size());
                 if (Objects.equals(ticket.key, "BOOKKEEPER-1")) {
-                    List<RevCommit> assComm = getCommitsAssociatedToTicket(commits, ticket);
+                    List<RevCommit> assComm = getCommitsAssociatedToTicket(ticket);
                     for (int i = 0; i < assComm.size(); i++) {
                         System.out.println("\n");
                         System.out.println(assComm.get(i).getShortMessage());
                         System.out.println("\n");
                     }
-                    System.out.println(getClassesFromCommit(assComm.get(0)).size());
+
+                    List<Class> classes = createAllClasses(assComm);
+
+                    for (int i = 0; i < classes.size(); i++) {
+                        System.out.println("\n\n");
+                        System.out.println(classes.get(i).getName() + "\n");
+                        System.out.println(classes.get(i).getRelease().getName());
+                        System.out.println(classes.get(i).getImplementation() + "\n");
+                        System.out.println("\n\n");
+                    }
                 }
             }
+
+            List<RevCommit> commitsAssToTickets = new ArrayList<>();
+
+            for (Ticket ticket : TicketRetriever.tickets) {
+                List<RevCommit> commitsAssToThisTicket = getCommitsAssociatedToTicket(ticket);
+                commitsAssToTickets.addAll(commitsAssToThisTicket);
+            }
+
+            System.out.println(commitsAssToTickets.size());
+
+            List<Class> allCommitsClasses = createAllClasses(commitsAssToTickets);
+            System.out.println(allCommitsClasses.size());
 
 
         } catch (GitAPIException e) {
@@ -86,7 +115,7 @@ public class CommitRetriever {
 
     }
 
-    public static List<RevCommit> retrieveCommitsForRelease(List<RevCommit> allCommits, Release release) {
+    public static List<RevCommit> retrieveCommitsForRelease(Release release) {
 
         List<RevCommit> releaseCommits = new ArrayList<>();
 
@@ -97,7 +126,7 @@ public class CommitRetriever {
         else
             startDate = TicketRetriever.releases.get(release.getId() - 1).getDate();
 
-        for (RevCommit commit : allCommits) {
+        for (RevCommit commit : commits) {
             LocalDateTime commitDate = commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime();
             if (endDate.isAfter(commitDate) && startDate.isBefore(commitDate)) {
                 releaseCommits.add(commit);
@@ -107,10 +136,10 @@ public class CommitRetriever {
         return releaseCommits;
     }
 
-    private static List<RevCommit> getCommitsAssociatedToTicket(List<RevCommit> allCommits, Ticket ticket) {
+    private static List<RevCommit> getCommitsAssociatedToTicket(Ticket ticket) {
         List<RevCommit> associatedCommits = new ArrayList<>();
 
-        for (RevCommit commit : allCommits) {
+        for (RevCommit commit : commits) {
             if (commit.getFullMessage().contains(ticket.key + ":") && !associatedCommits.contains(commit)) {
                 associatedCommits.add(commit);
             }
@@ -143,19 +172,18 @@ public class CommitRetriever {
         List<Class> classes = new ArrayList<>();
 
         for (RevCommit commit : allCommits) {
-            HashMap<String, String> classDescription = getClassesFromCommit(commit);
-            Class newClass = new Class(classDescription.keySet().toArray()[0].toString(), classDescription.values().toArray()[0].toString(), getReleaseFromCommit(commit));
+            HashMap<String, String> classesDescription = getClassesFromCommit(commit);
+            for (int i = 0; i < classesDescription.size(); i++) {
+                Class newClass = new Class(classesDescription.keySet().toArray()[i].toString(), classesDescription.values().toArray()[i].toString(), getReleaseFromCommit(commit));
+                classes.add(newClass);
+            }
         }
 
         return classes;
     }
 
     private static Release getReleaseFromCommit(RevCommit commit) {
-        Release release;
-
         LocalDateTime commitDate = commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime();
-
-
         return TicketRetriever.getRelease(commitDate);
     }
 }

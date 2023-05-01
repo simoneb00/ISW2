@@ -44,6 +44,14 @@ public class Class {
         this.changeSetSize = 0;
     }
 
+    public String getImplementation() {
+        return implementation;
+    }
+
+    public void setImplementation(String implementation) {
+        this.implementation = implementation;
+    }
+
     public String getName() {
         return name;
     }
