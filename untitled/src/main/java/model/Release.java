@@ -1,17 +1,38 @@
 package model;
 
+import org.eclipse.jgit.revwalk.RevCommit;
+
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class Release {
 
-    int id;
-    String name;
-    LocalDateTime date;
+    private int id;
+    private String name;
+    private LocalDateTime date;
+    private List<RevCommit> associatedCommits;
+    private RevCommit lastCommit;
 
     public Release(int id, String name, LocalDateTime date) {
         this.id = id;
         this.name = name;
         this.date = date;
+    }
+
+    public List<RevCommit> getAssociatedCommits() {
+        return associatedCommits;
+    }
+
+    public void setAssociatedCommits(List<RevCommit> associatedCommits) {
+        this.associatedCommits = associatedCommits;
+    }
+
+    public RevCommit getLastCommit() {
+        return lastCommit;
+    }
+
+    public void setLastCommit(RevCommit lastCommit) {
+        this.lastCommit = lastCommit;
     }
 
     public int getId() {
