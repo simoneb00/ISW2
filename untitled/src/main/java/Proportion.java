@@ -38,7 +38,7 @@ public class Proportion {
                     incrementProportion(previousTickets, ticket);
                 }
 
-                // ticket.injectedVersion = TicketRetriever.releases.get(
+                //ticket.injectedVersion = TicketRetriever.releases.get(
                    //     Math.max(0, Math.round(ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportion)));
             }
         }

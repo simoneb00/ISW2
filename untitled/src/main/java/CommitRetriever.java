@@ -1,6 +1,7 @@
 import model.Class;
 import model.Release;
 import model.Ticket;
+import model.TicketCommit;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ListBranchCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -26,8 +27,9 @@ import java.util.*;
 
 public class CommitRetriever {
 
-    private static String projName = "BOOKKEEPER";
+    private static String projName = "bookkeeper";
     public static List<RevCommit> releaseCommits = new ArrayList<>();
+    private static List<Class> allClasses = new ArrayList<>();
     private static List<RevCommit> commits = new ArrayList<>();
 
     private static Repository repository;
@@ -53,7 +55,7 @@ public class CommitRetriever {
                 Iterable<RevCommit> branchCommits = git.log().add(repository.resolve(branch.getName())).call();
                 for (RevCommit commit : branchCommits) {
                     LocalDateTime commitDate = commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime();
-                    if (commitDate.isBefore(lastRelease) || commitDate.isEqual(lastRelease))
+                    if (commitDate.isBefore(lastRelease) || commitDate.isEqual(lastRelease) && !commits.contains(commit))
                         commits.add(commit);
                 }
             }
@@ -91,44 +93,80 @@ public class CommitRetriever {
                 }
             }
 
-            for (List<Class> cls : classes) {
-                for (Class c : cls) {
-                    System.out.println(c.getName() + ", " + c.getRelease().getName() + "; " + c.getAssociatedCommits().size());
-                }
+
+            for (List<Class> classList : classes) {
+                allClasses.addAll(classList);
             }
 
-            /*
+            retrieveCommitsForClasses(allClasses, commits);
 
+            for (Class c : allClasses){
+                System.out.println(c.getName() + ", " + c.getRelease().getName() + "; " + c.getAssociatedCommits().size());
 
-            for (Ticket ticket : TicketRetriever.tickets) {
-                System.out.println("Commits associated to ticket " + ticket.key + " = " + getCommitsAssociatedToTicket(ticket).size());
-                if (Objects.equals(ticket.key, "BOOKKEEPER-1")) {
-
-                    List<RevCommit> assComm = getCommitsAssociatedToTicket(ticket);
-                    List<Class> classes = createAllClasses(assComm);
-
-                }
             }
 
-            List<RevCommit> commitsAssToTickets = new ArrayList<>();
+            System.out.println(commits.size());
+            computeMetrics(allClasses, commits, TicketRetriever.tickets);
 
-            for (Ticket ticket : TicketRetriever.tickets) {
-                List<RevCommit> commitsAssToThisTicket = getCommitsAssociatedToTicket(ticket);
-                commitsAssToTickets.addAll(commitsAssToThisTicket);
-            }
-
-            System.out.println(commitsAssToTickets.size());
-
-            List<Class> allCommitsClasses = createAllClasses(commitsAssToTickets);
-            System.out.println(allCommitsClasses.size());
-
-
-
-
-             */
 
         } catch (GitAPIException e) {
             throw new RuntimeException(e);
+        }
+
+    }
+
+    /*
+     *  This method filters all commits, keeping the ones that have an associated ticket (i.e. commits with a tag "PROJ_NAME-k" in their comment)
+     */
+    private static List<TicketCommit> filterCommitsWithAssTickets(List<RevCommit> allCommits, List<Ticket> allTickets) {
+        List<TicketCommit> commitsWithAssociatedTickets = new ArrayList<>();
+
+        for (RevCommit commit : allCommits) {
+            for (Ticket ticket : allTickets) {
+                //System.out.println(ticket.key);
+                if (commit.getFullMessage().contains(ticket.key + ":") || commit.getFullMessage().contains("[" + ticket.key + "]") && !commitsWithAssociatedTickets.contains(commit)) {
+                    //System.out.println(commit.getShortMessage());
+                    TicketCommit ticketCommit = new TicketCommit(commit, ticket);
+                    commitsWithAssociatedTickets.add(ticketCommit);
+                }
+            }
+        }
+
+        return commitsWithAssociatedTickets;
+    }
+
+    private static void computeMetrics(List<Class> allClasses, List<RevCommit> allCommits, List<Ticket> allTickets) {
+
+        for (Ticket ticket : allTickets) {
+            System.out.println(ticket.key);
+        }
+
+        for (RevCommit commit : allCommits) {
+            System.out.println(commit.getShortMessage() + TicketRetriever.getRelease(commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime()).getId());
+        }
+
+        // first, we filter the commits, keeping only the ones with associated tickets, in order to determine every class' buggyness
+        List<TicketCommit> commitsWithAssTickets = filterCommitsWithAssTickets(allCommits, allTickets);
+
+        ComputeMetrics computeMetrics = new ComputeMetrics();
+
+        for (Class c : allClasses) {
+            c.setBuggy(computeMetrics.isBuggy(c, commitsWithAssTickets));
+        }
+
+        int buggyCount = 0;
+
+        for (Class c : allClasses) {
+            if (c.isBuggy())
+                buggyCount++;
+        }
+
+        System.out.println("buggy classes: " + buggyCount);
+        System.out.println("all classes: " + allClasses.size());
+
+        for (Class c : allClasses) {
+            if(c.isBuggy())
+                System.out.println(c.getRelease().getId());
         }
 
     }
@@ -155,7 +193,7 @@ public class CommitRetriever {
             for (DiffEntry entry : diffEntries) {
 
                 // change types = ADD, MODIFY, COPY, DELETE, RENAME; we're interested in the modified classes
-                if (entry.getChangeType() == DiffEntry.ChangeType.MODIFY && entry.getNewPath().contains(".java") && !entry.getNewPath().contains("/test/"))
+                if (entry.getNewPath().contains(".java") && !entry.getNewPath().contains("/test/"))
                     modifiedClasses.add(entry.getNewPath());
             }
 
@@ -170,9 +208,27 @@ public class CommitRetriever {
         return modifiedClasses;
     }
 
+    /*
+     *  This method, given all classes and all commits, retrieves, for each class c, its associated commits,
+     *  so the list of all those commits that modify, add, remove, delete or rename c.
+     */
+    private static void retrieveCommitsForClasses(List<Class> allClasses, List<RevCommit> allCommits) throws IOException {
+        for (RevCommit commit : allCommits) {
+            List<String> modifiedClasses = getModifiedClasses(commit);
+            for (String modifiedClass : modifiedClasses) {
+                for (Class cls : allClasses) {
+                    if (modifiedClass.equals(cls.getName()) && getReleaseFromCommit(commit).getId() == cls.getRelease().getId() && !cls.getAssociatedCommits().contains(commit))
+                        cls.getAssociatedCommits().add(commit);
+                }
+            }
+        }
+    }
+
+    /*
     private static void retrieveCommitsForClass(Class c) throws IOException {
         List<RevCommit> releaseCommits = c.getRelease().getAssociatedCommits();
         List<RevCommit> assCommits = new ArrayList<>();
+
 
         for (RevCommit commit : releaseCommits) {
             List<String> modifiedClasses = getModifiedClasses(commit);
@@ -185,6 +241,8 @@ public class CommitRetriever {
 
         c.setAssociatedCommits(assCommits);
     }
+
+     */
 
     private static List<Class> getClassesFromReleaseCommit(Release release) throws IOException {
 
@@ -199,7 +257,6 @@ public class CommitRetriever {
             String implementation = implementations.toArray()[i].toString();
 
             Class newClass = new Class(name, implementation, release);
-            retrieveCommitsForClass(newClass);
 
             classes.add(newClass);
         }
@@ -259,18 +316,6 @@ public class CommitRetriever {
         return releaseCommits;
     }
      */
-    private static List<RevCommit> getCommitsAssociatedToTicket(Ticket ticket) {
-        List<RevCommit> associatedCommits = new ArrayList<>();
-
-        for (RevCommit commit : commits) {
-            if (commit.getFullMessage().contains(ticket.key + ":") && !associatedCommits.contains(commit)) {
-                associatedCommits.add(commit);
-            }
-
-        }
-
-        return associatedCommits;
-    }
 
     private static HashMap<String, String> getClassesFromCommit(RevCommit commit) throws IOException {
 
