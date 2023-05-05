@@ -69,7 +69,7 @@ public class Proportion {
         System.out.println("---------------- cold start for ticket " + ticket.key + "-------------------------");
 
         /* TODO find a significant value for proportion */
-        int proportion = 2;
+        int proportion = 1;
 
         ticket.injectedVersion = TicketRetriever.releases.get(
                 Math.max(0, Math.round(ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportion)));

@@ -81,6 +81,8 @@ public class TicketRetriever {
         }
 
         CommitRetriever.retrieveCommits();
+
+
     }
 
     public static Ticket getTicket(JSONObject ticketInfo) throws JSONException {
@@ -176,7 +178,34 @@ public class TicketRetriever {
     }
 
 
+    public static List<Ticket> getTicketsWithAV() {
 
+        List<Ticket> filteredTickets = filterTickets();
+
+        System.out.println(filteredTickets.size());
+
+        List<Ticket> ticketsWithAV = new ArrayList<>();
+
+        for (Ticket ticket : filteredTickets) {
+            if (ticket.fixVersion.getId() != ticket.injectedVersion.getId()) {
+                // these tickets have fix version different from the injected version, so they have AV
+                ticketsWithAV.add(ticket);
+            }
+        }
+
+        return ticketsWithAV;
+    }
+
+    private static List<Ticket> filterTickets() {
+        List<Ticket> filteredList = new ArrayList<>();
+
+        for (Ticket ticket : tickets) {
+            if (ticket.injectedVersion.getId() < Math.round(releases.size()/2))
+                filteredList.add(ticket);
+        }
+
+        return filteredList;
+    }
 
 
 }

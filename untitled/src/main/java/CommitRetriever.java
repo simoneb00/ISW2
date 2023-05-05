@@ -19,11 +19,15 @@ import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.eclipse.jgit.util.io.NullOutputStream;
+import utils.CSV;
+import utils.CommitUtils;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.*;
+
+import static utils.CSV.generateCSV;
 
 public class CommitRetriever {
 
@@ -43,11 +47,11 @@ public class CommitRetriever {
         try (Git git = new Git(repository)) {
 
             /*
-            *   retrieving all the commits
-            *   ASSUMPTION: we're discarding the last half of releases, in order to have a smaller number of commits to handle
-            */
+             *   retrieving all the commits
+             *   ASSUMPTION: we're discarding the last half of releases, in order to have a smaller number of commits to handle
+             */
 
-            LocalDateTime lastRelease = TicketRetriever.releases.get(Math.round(TicketRetriever.releases.size()/2)).getDate();
+            LocalDateTime lastRelease = TicketRetriever.releases.get(Math.round(TicketRetriever.releases.size() / 2)).getDate();
 
             List<Ref> branches = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
 
@@ -61,7 +65,7 @@ public class CommitRetriever {
             }
 
             // initializing last commits for all releases
-            for (int i = 0; i < Math.round(TicketRetriever.releases.size()/2); i++) {
+            for (int i = 0; i < Math.round(TicketRetriever.releases.size() / 2); i++) {
 
                 LocalDateTime firstDate;
 
@@ -69,21 +73,20 @@ public class CommitRetriever {
                     firstDate = LocalDateTime.of(1970, 01, 01, 0, 0);
                     initReleaseCommits(commits, TicketRetriever.releases.get(i), firstDate);
                 } else {
-                    firstDate = TicketRetriever.releases.get(i-1).getDate();
+                    firstDate = TicketRetriever.releases.get(i - 1).getDate();
                     initReleaseCommits(commits, TicketRetriever.releases.get(i), firstDate);
                 }
             }
 
-            for (Release release : TicketRetriever.releases.subList(0, Math.round(TicketRetriever.releases.size()/2))) {
+            for (Release release : TicketRetriever.releases.subList(0, Math.round(TicketRetriever.releases.size() / 2))) {
                 if (!release.getAssociatedCommits().isEmpty())
                     System.out.println(release.getId() + ": " + release.getAssociatedCommits().size() + ", last commit: " + release.getLastCommit().getAuthorIdent().getWhen());
             }
 
 
-
             System.out.println(commits.size());
 
-            List<Release> releases = TicketRetriever.releases.subList(0, Math.round(TicketRetriever.releases.size()/2));
+            List<Release> releases = TicketRetriever.releases.subList(0, Math.round(TicketRetriever.releases.size() / 2));
             List<List<Class>> classes = new ArrayList<>();
 
             for (Release release : releases) {
@@ -100,13 +103,35 @@ public class CommitRetriever {
 
             retrieveCommitsForClasses(allClasses, commits);
 
-            for (Class c : allClasses){
+            for (Class c : allClasses) {
                 System.out.println(c.getName() + ", " + c.getRelease().getName() + "; " + c.getAssociatedCommits().size());
 
             }
 
             System.out.println(commits.size());
-            computeMetrics(allClasses, commits, TicketRetriever.tickets);
+
+            labelBuggyClasses();
+
+            int count = 0;
+            List<Integer> versions = new ArrayList<>();
+
+            for (Class cls : allClasses) {
+                if (cls.isBuggy()) {
+                    versions.add(cls.getRelease().getId());
+                    count++;
+                }
+            }
+
+
+
+            System.out.println("All classes: " + allClasses.size());
+            System.out.println("Buggy classes: " + count);
+            System.out.println("Versions of the buggy classes: " + versions);
+
+            ComputeMetrics computeMetrics = new ComputeMetrics();
+            computeMetrics.computeMetrics(allClasses);
+
+            CSV.generateCSV(allClasses);
 
 
         } catch (GitAPIException e) {
@@ -135,44 +160,41 @@ public class CommitRetriever {
         return commitsWithAssociatedTickets;
     }
 
-    private static void computeMetrics(List<Class> allClasses, List<RevCommit> allCommits, List<Ticket> allTickets) {
-
-        for (Ticket ticket : allTickets) {
-            System.out.println(ticket.key);
+    private static void labelClasses(List<Class> allClasses, String className, Ticket ticket) {
+        for (Class cls : allClasses) {
+            if (cls.getName().equals(className) && cls.getRelease().getId() >= ticket.injectedVersion.getId() && cls.getRelease().getId() < ticket.fixVersion.getId()) {
+                cls.setBuggy(true);
+            }
         }
 
-        for (RevCommit commit : allCommits) {
-            System.out.println(commit.getShortMessage() + TicketRetriever.getRelease(commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime()).getId());
-        }
+    }
 
-        // first, we filter the commits, keeping only the ones with associated tickets, in order to determine every class' buggyness
-        List<TicketCommit> commitsWithAssTickets = filterCommitsWithAssTickets(allCommits, allTickets);
+    private static void labelBuggyClasses() {
+        List<Ticket> ticketsWithAV = TicketRetriever.getTicketsWithAV();   // these are all tickets with fv != iv, so the tickets for which it is possible to detect buggy classes
+        System.out.println("Tickets with AV: " + ticketsWithAV.size());
 
-        ComputeMetrics computeMetrics = new ComputeMetrics();
+        // we need to retrieve all the commits associated to all the tickets with AV
+        for (Ticket ticket : ticketsWithAV) {
 
-        for (Class c : allClasses) {
-            c.setBuggy(computeMetrics.isBuggy(c, commitsWithAssTickets));
-        }
+            List<RevCommit> commitsAssociatedToTicket = CommitUtils.filterCommitsAssociatedToTicket(ticket, commits);
 
-        int buggyCount = 0;
+            // for each commit associated to the ticket, we need the modified classes
+            for (RevCommit commit : commitsAssociatedToTicket) {
 
-        for (Class c : allClasses) {
-            if (c.isBuggy())
-                buggyCount++;
-        }
+                List<String> modifiedClassesNames = getModifiedClasses(commit);
 
-        System.out.println("buggy classes: " + buggyCount);
-        System.out.println("all classes: " + allClasses.size());
+                // each one of these classes is buggy if it belongs to a release with id s.t. ticket.IV.id <= class.releaseId < ticket.FV.id
+                for (String modifiedClass : modifiedClassesNames) {
+                    labelClasses(allClasses, modifiedClass, ticket);
+                }
 
-        for (Class c : allClasses) {
-            if(c.isBuggy())
-                System.out.println(c.getRelease().getId());
+            }
         }
 
     }
 
     // this method returns the names of all the classes that have been modified by the commit
-    private static List<String> getModifiedClasses(RevCommit commit) {
+    public static List<String> getModifiedClasses(RevCommit commit) {
 
         List<String> modifiedClasses = new ArrayList<>();
 
