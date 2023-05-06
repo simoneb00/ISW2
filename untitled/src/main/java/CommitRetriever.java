@@ -132,7 +132,7 @@ public class CommitRetriever {
             System.out.println("Versions of the buggy classes: " + versions);
 
             ComputeMetrics computeMetrics = new ComputeMetrics();
-            computeMetrics.computeMetrics(allClasses);
+            computeMetrics.computeMetrics(allClasses, projName);
 
             CSV.generateCSV(allClasses, projName);
 
