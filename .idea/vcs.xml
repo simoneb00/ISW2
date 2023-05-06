@@ -3,5 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/bookkeeper" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/storm" vcs="Git" />
   </component>
 </project>

@@ -1,3 +1,4 @@
+import exceptions.InvalidTicketException;
 import model.Release;
 import model.Ticket;
 import org.codehaus.jettison.json.JSONArray;
@@ -16,10 +17,10 @@ import java.util.*;
 import static utils.JSON.readJsonFromUrl;
 
 public class TicketRetriever {
-    public static ArrayList<Ticket> tickets;
     public static ArrayList<Release> releases = new ArrayList<>();
 
-    public static void main(String[] args) throws JSONException, IOException, GitAPIException {
+    /*
+    public static void main(String[] args) throws JSONException, IOException {
         String projectName = "BOOKKEEPER";
         String query = "search?jql=project=" + projectName + "+and+type=bug+and+(status=closed+or+status=resolved)+and+resolution=fixed&maxResults=1000";
         String url = "https://issues.apache.org/jira/rest/api/2/" + query;
@@ -85,21 +86,79 @@ public class TicketRetriever {
 
     }
 
-    public static Ticket getTicket(JSONObject ticketInfo) throws JSONException {
+     */
+
+    public static ArrayList<Ticket> retrieveTickets(String projName) throws JSONException, IOException {
+        int startAt = 0;
+
+        ArrayList<Ticket> tickets = new ArrayList<>();
+
+        JSONObject json;
+
+        releases = GetReleaseInfo.getReleaseInfo(projName);
+
+        System.out.println("Retrieving tickets for project " + projName);
+
+        do {
+            String query = "search?jql=project=" + projName + "+and+type=bug+and+(status=closed+or+status=resolved)+and+resolution=fixed&maxResults=1000&startAt=" + startAt;
+            String url = "https://issues.apache.org/jira/rest/api/2/" + query;
+
+            json = readJsonFromUrl(url);
+            JSONArray issues = json.getJSONArray("issues");
+
+            for (int i = 0; i < issues.length(); i++) {
+                try {
+                    tickets.add(getTicket(issues.getJSONObject(i), releases));
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                } catch (InvalidTicketException e) {
+                    // ignore: invalid ticket
+                }
+            }
+
+            startAt += 1000;
+
+        } while (json.getJSONArray("issues").length() != 0);
+
+        int count = 0;
+        for (Ticket ticket : tickets) {
+            if (ticket.proportion != 0) {
+                count++;
+            }
+        }
+
+        System.out.println("Tickets having proportion (project " + projName + "):"  + count + " over " + tickets.size() + " tickets");
+        System.out.println("proportion mean (project " + projName + "):" + getProportionMean(tickets));
+
+
+        Proportion.coldStartProportion(tickets, projName);
+
+        return tickets;
+
+    }
+
+    public static Ticket getTicket(JSONObject ticketInfo, List<Release> rels) throws JSONException, InvalidTicketException, IOException {
 
         Ticket ticket = new Ticket();
+
+        JSONObject fields = ticketInfo.getJSONObject("fields");
+        if (!fields.has("resolutiondate")) {
+            throw new InvalidTicketException();
+        }
+
+        LocalDateTime resolutionDate = LocalDateTime.parse(fields.get("resolutiondate").toString().substring(0, 21));
+        if (resolutionDate.isAfter(rels.get(rels.size() - 1).getDate())) {
+            /* this ticket has been resolved in a release that hasn't been released yet, so it is ignored */
+            throw new InvalidTicketException();
+        }
 
         ticket.id = ticketInfo.get("id").toString();
         ticket.key = ticketInfo.get("key").toString();
 
-
-        JSONObject fields = ticketInfo.getJSONObject("fields");
-
-        LocalDateTime resolutionDate = LocalDateTime.parse(fields.get("resolutiondate").toString().substring(0, 21));
-        ticket.fixVersion = getRelease(resolutionDate);
+        ticket.fixVersion = getRelease(resolutionDate, rels);
 
         LocalDateTime creationDate = LocalDateTime.parse(fields.get("created").toString().substring(0, 21));
-        ticket.openingVersion = getRelease(creationDate);
+        ticket.openingVersion = getRelease(creationDate, rels);
 
 
         JSONArray versions = fields.getJSONArray("versions");
@@ -109,11 +168,12 @@ public class TicketRetriever {
             ticket.affectedVersions = null;
         } else {
             for (int i = 0; i < versions.length(); i++) {
-                ticket.affectedVersions.add(getRelease(LocalDate.parse(versions.getJSONObject(i).get("releaseDate").toString()).atStartOfDay()));
+                if (versions.getJSONObject(i).has("releaseDate"))
+                    ticket.affectedVersions.add(getRelease(LocalDate.parse(versions.getJSONObject(i).get("releaseDate").toString()).atStartOfDay(), rels));
             }
         }
 
-        if (ticket.affectedVersions != null) {
+        if (ticket.affectedVersions != null && !ticket.affectedVersions.isEmpty()) {
 
             Release injVersion = ticket.affectedVersions.get(0);
 
@@ -123,13 +183,13 @@ public class TicketRetriever {
             }
 
             ticket.injectedVersion = injVersion;
-            computeProportion(ticket);
+            Proportion.computeProportion(ticket);
         }
 
         return ticket;
     }
 
-    public static float getProportionMean() {
+    public static float getProportionMean(List<Ticket> tickets) {
         float sum = 0;
         int count = 0;
         for (Ticket ticket : tickets) {
@@ -143,15 +203,16 @@ public class TicketRetriever {
     }
 
 
-    public static Release getRelease(LocalDateTime date) {
+    public static Release getRelease(LocalDateTime date, List<Release> rels) throws JSONException, IOException {
+
 
         int i = 0;
 
-        while (releases.get(i).getDate().isBefore(date)) {
+        while (rels.get(i).getDate().isBefore(date)) {
            i++;
         }
 
-        return releases.get(i);
+        return rels.get(i);
     }
 
 
@@ -165,22 +226,22 @@ public class TicketRetriever {
      *   - discard invalid affectedVersions, i.e. with openingVersion > fixVersion, injectedVersion > fixVersion and injectedVersion > openingVersion
      */
 
-
+/*
     public static void computeProportion(Ticket ticket) {
         if (ticket.fixVersion.getId() > ticket.openingVersion.getId()
                 && ticket.fixVersion.getId() > ticket.injectedVersion.getId()
                 && ticket.injectedVersion.getId() < ticket.openingVersion.getId()) {
             ticket.proportion = (float)(ticket.fixVersion.getId() - ticket.injectedVersion.getId())/(ticket.fixVersion.getId() - ticket.openingVersion.getId());
             System.out.println(ticket.proportion);
-
         }
-
     }
 
+ */
 
-    public static List<Ticket> getTicketsWithAV() {
 
-        List<Ticket> filteredTickets = filterTickets();
+    public static List<Ticket> getTicketsWithAV(List<Ticket> tickets) {
+
+        List<Ticket> filteredTickets = filterTickets(tickets);
 
         System.out.println(filteredTickets.size());
 
@@ -196,7 +257,7 @@ public class TicketRetriever {
         return ticketsWithAV;
     }
 
-    private static List<Ticket> filterTickets() {
+    private static List<Ticket> filterTickets(List<Ticket> tickets) {
         List<Ticket> filteredList = new ArrayList<>();
 
         for (Ticket ticket : tickets) {
@@ -206,7 +267,6 @@ public class TicketRetriever {
 
         return filteredList;
     }
-
 
 }
 

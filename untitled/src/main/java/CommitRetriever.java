@@ -2,6 +2,7 @@ import model.Class;
 import model.Release;
 import model.Ticket;
 import model.TicketCommit;
+import org.codehaus.jettison.json.JSONException;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ListBranchCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -30,19 +31,21 @@ import java.util.*;
 import static utils.CSV.generateCSV;
 
 public class CommitRetriever {
-
-    private static String projName = "bookkeeper";
     public static List<RevCommit> releaseCommits = new ArrayList<>();
     private static List<Class> allClasses = new ArrayList<>();
     private static List<RevCommit> commits = new ArrayList<>();
 
     private static Repository repository;
 
-    public static void retrieveCommits() throws IOException {
+    private static List<Release> releases = new ArrayList<>();
 
-        System.out.println("------------- retrieving the commits -----------------");
+    public static void retrieveCommits(String projName, List<Ticket> allTickets) throws IOException, JSONException {
 
-        repository = new FileRepository(projName + "/.git/");
+        releases = GetReleaseInfo.getReleaseInfo(projName);
+
+        System.out.println("------------- retrieving the commits for " + projName + "-----------------");
+
+        repository = new FileRepository(projName.toLowerCase() + "/.git/");
 
         try (Git git = new Git(repository)) {
 
@@ -84,7 +87,7 @@ public class CommitRetriever {
             }
 
 
-            System.out.println(commits.size());
+            System.out.println("Number of total commits: " + commits.size());
 
             List<Release> releases = TicketRetriever.releases.subList(0, Math.round(TicketRetriever.releases.size() / 2));
             List<List<Class>> classes = new ArrayList<>();
@@ -110,7 +113,7 @@ public class CommitRetriever {
 
             System.out.println(commits.size());
 
-            labelBuggyClasses();
+            labelBuggyClasses(allTickets);
 
             int count = 0;
             List<Integer> versions = new ArrayList<>();
@@ -131,11 +134,11 @@ public class CommitRetriever {
             ComputeMetrics computeMetrics = new ComputeMetrics();
             computeMetrics.computeMetrics(allClasses);
 
-            CSV.generateCSV(allClasses);
+            CSV.generateCSV(allClasses, projName);
 
 
         } catch (GitAPIException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
 
     }
@@ -169,8 +172,8 @@ public class CommitRetriever {
 
     }
 
-    private static void labelBuggyClasses() {
-        List<Ticket> ticketsWithAV = TicketRetriever.getTicketsWithAV();   // these are all tickets with fv != iv, so the tickets for which it is possible to detect buggy classes
+    private static void labelBuggyClasses(List<Ticket> tickets) {
+        List<Ticket> ticketsWithAV = TicketRetriever.getTicketsWithAV(tickets);   // these are all tickets with fv != iv, so the tickets for which it is possible to detect buggy classes
         System.out.println("Tickets with AV: " + ticketsWithAV.size());
 
         // we need to retrieve all the commits associated to all the tickets with AV
@@ -234,7 +237,7 @@ public class CommitRetriever {
      *  This method, given all classes and all commits, retrieves, for each class c, its associated commits,
      *  so the list of all those commits that modify, add, remove, delete or rename c.
      */
-    private static void retrieveCommitsForClasses(List<Class> allClasses, List<RevCommit> allCommits) throws IOException {
+    private static void retrieveCommitsForClasses(List<Class> allClasses, List<RevCommit> allCommits) throws IOException, JSONException {
         for (RevCommit commit : allCommits) {
             List<String> modifiedClasses = getModifiedClasses(commit);
             for (String modifiedClass : modifiedClasses) {
@@ -358,7 +361,7 @@ public class CommitRetriever {
         return classDescription;
     }
 
-    private static List<Class> createAllClasses(List<RevCommit> allCommits) throws IOException {
+    private static List<Class> createAllClasses(List<RevCommit> allCommits) throws IOException, JSONException {
         List<Class> classes = new ArrayList<>();
 
         for (RevCommit commit : allCommits) {
@@ -372,9 +375,9 @@ public class CommitRetriever {
         return classes;
     }
 
-    private static Release getReleaseFromCommit(RevCommit commit) {
+    private static Release getReleaseFromCommit(RevCommit commit) throws JSONException, IOException {
         LocalDateTime commitDate = commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime();
-        return TicketRetriever.getRelease(commitDate);
+        return TicketRetriever.getRelease(commitDate, releases);
     }
 }
 

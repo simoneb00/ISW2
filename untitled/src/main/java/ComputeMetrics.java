@@ -27,8 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ComputeMetrics {
-
-    private String projName = "BOOKKEEPER";
+    private String projName;
 
     /*
      *  This class has the responsibility to compute all metrics for all classes
@@ -208,7 +207,8 @@ public class ComputeMetrics {
         return locDeleted;
     }
 
-    public void computeMetrics(List<Class> allClasses) throws IOException {
+    public void computeMetrics(List<Class> allClasses, String projName) throws IOException {
+        this.projName = projName;
         for (Class c : allClasses) {
             setSize(c);
             setNAuth(c);
