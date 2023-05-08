@@ -3,6 +3,7 @@ package utils;
 import model.Class;
 import model.Release;
 
+import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
@@ -12,15 +13,19 @@ public class CSV {
 
     public static void generateCSV(List<Class> classes, String projName) throws IOException {
 
+        System.out.println("Generating the CSV file for " + projName);
+
         FileWriter fileWriter = null;
+        BufferedWriter bufferedWriter = null;
 
         try {
             fileWriter = new FileWriter(projName + ".csv");
-            fileWriter.append(FIRST_ROW);
-            fileWriter.append("\n");
+            bufferedWriter = new BufferedWriter(fileWriter);
+            bufferedWriter.append(FIRST_ROW);
+            bufferedWriter.append("\n");
 
             for (Class c : classes) {
-                String row = c.getRelease().getId() + 1 + ", " +
+                String row = c.getRelease().getId() + ", " +
                         c.getName() + ", " +
                         c.getSize() + ", " +
                         c.getNAuth() + ", " +
@@ -35,8 +40,8 @@ public class CSV {
                         c.getAge() + ", " +
                         c.isBuggy();
 
-                fileWriter.append(row);
-                fileWriter.append("\n");
+                bufferedWriter.append(row);
+                bufferedWriter.append("\n");
             }
 
         }
@@ -44,7 +49,9 @@ public class CSV {
         finally {
             try {
                 fileWriter.flush();
+                bufferedWriter.flush();
                 fileWriter.close();
+                bufferedWriter.close();
             } catch (IOException e) {
                 System.out.println("Error while flushing/closing fileWriter !!!");
                 e.printStackTrace();

@@ -1,11 +1,17 @@
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvException;
 import exceptions.InvalidTicketException;
 import model.Release;
 import model.Ticket;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
+import utils.CSV;
 
-import java.io.IOException;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -23,63 +29,112 @@ public class Proportion {
 
     // Predicted IV = FV - (FV - OV) * P
 
-    public static void coldStartProportion(ArrayList<Ticket> tickets, String projName) throws JSONException, IOException {
 
-        List<String> allProjects = Arrays.asList(
-                "AVRO",
-                "OPENJPA",
-                "STORM",
-                "ZOOKEEPER",
-                "SYNCOPE",
-                "TAJO",
-                "BOOKKEEPER"
-        );
+    private static List<String> allProjects = Arrays.asList(
+            "AVRO",
+            "OPENJPA",
+            "STORM",
+            "ZOOKEEPER",
+            "SYNCOPE",
+            "TAJO",
+            "BOOKKEEPER"
+    );
+
+    public static void coldStartProportion(ArrayList<Ticket> tickets, String projName) throws JSONException, IOException {
 
         ArrayList<Integer> proportionValues = new ArrayList<>();
 
-        for (String project : allProjects) {
-            if (!project.equals(projName)) {
-                proportionValues.add(Math.round(getProportionForProject(project)));
+        FileWriter fileWriter = null;
+        Path proportionFile = Paths.get("Proportion" + projName + ".csv");
+
+        if (!Files.exists(proportionFile)) {
+            try {
+                System.out.println("Proportion.csv does not exist for " + projName);
+                fileWriter = new FileWriter("Proportion" + projName + ".csv");
+
+                fileWriter.append("Project, Proportion Value");
+                fileWriter.append("\n");
+
+                for (String project : allProjects) {
+                    if (!project.equals(projName)) {
+                        fileWriter.append(project).append(", ").append(String.valueOf(Math.round(getProportionForProject(project))));
+                        fileWriter.append("\n");
+                    }
+                }
+
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                fileWriter.close();
             }
         }
 
+
+        proportionValues = readProportionFile(projName);
+
+
         Collections.sort(proportionValues);
 
-        System.out.println("Proportion values = " + proportionValues);
-
         int proportionValue = Math.round(median(proportionValues));
-
-        System.out.println("Proportion value for " + projName + "= " + proportionValue);
 
         for (Ticket ticket : tickets) {
             if (ticket.proportion == 0) {
                 ticket.injectedVersion = TicketRetriever.releases.get(
-                        Math.max(0, Math.round((float)ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportionValue) - 1)
+                        Math.max(0, Math.round((float) ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportionValue) - 1)
                 );
             }
         }
     }
 
+    private static ArrayList<Integer> readProportionFile(String projName) throws IOException {
+
+        CSVReader csvReader = null;
+        ArrayList<Integer> proportionValues = new ArrayList<>();
+
+        try {
+
+            csvReader = new CSVReader(new FileReader("Proportion" + projName + ".csv"));
+            List<String[]> r = csvReader.readAll();
+            for (String[] row : r) {
+                for (String proj : allProjects) {
+                    if (Arrays.stream(row).toArray()[0].toString().equals(proj)) {
+                        proportionValues.add(Integer.parseInt(Arrays.stream(row).toArray()[1].toString().substring(1)));
+                    }
+                }
+            }
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (CsvException e) {
+            throw new RuntimeException(e);
+        } finally {
+            csvReader.close();
+        }
+
+        return proportionValues;
+    }
+
     private static float median(List<Integer> list) {
         float sum;
         if (list.size() % 2 == 0) {
-            sum = (float)list.get(list.size() / 2 - 1) + (float)list.get(list.size() / 2);
-            return sum/2;
+            sum = (float) list.get(list.size() / 2 - 1) + (float) list.get(list.size() / 2);
+            return sum / 2;
         } else {
-            return (float)list.get(list.size()/2);
+            return (float) list.get(list.size() / 2);
         }
     }
 
     /*
-     *  ASSUMPTION: we consider only tickets with consistent AV, i.e. with IV <= OV. In the case of FV = OV, in order to avoid denominator going to infinity, we assume FV - AV = 1
+     *  ASSUMPTION: we consider only tickets with consistent AV, i.e. with IV (earliest release in AV) <= OV. In the case of FV = OV, in order to avoid denominator going to infinity, we assume FV - AV = 1
      */
     public static void computeProportion(Ticket ticket) {
 
         if (ticket.injectedVersion.getId() <= ticket.openingVersion.getId() && ticket.fixVersion.getId() == ticket.openingVersion.getId())
             ticket.proportion = ticket.fixVersion.getId() - ticket.injectedVersion.getId();
         else if (ticket.injectedVersion.getId() <= ticket.openingVersion.getId() && ticket.openingVersion.getId() < ticket.fixVersion.getId()) {
-            ticket.proportion = (float)(ticket.fixVersion.getId() - ticket.injectedVersion.getId())/(ticket.fixVersion.getId() - ticket.openingVersion.getId());
-            System.out.println(ticket.proportion);
+            ticket.proportion = (float) (ticket.fixVersion.getId() - ticket.injectedVersion.getId()) / (ticket.fixVersion.getId() - ticket.openingVersion.getId());
         }
     }
 
@@ -121,7 +176,7 @@ public class Proportion {
             }
         }
 
-        System.out.println("Tickets having proportion (project " + projName + "):"  + count + " over " + tickets.size() + " tickets");
+        System.out.println("Tickets having proportion (project " + projName + "):" + count + " over " + tickets.size() + " tickets");
         System.out.println("proportion mean (project " + projName + "):" + TicketRetriever.getProportionMean(tickets));
 
         return TicketRetriever.getProportionMean(tickets);

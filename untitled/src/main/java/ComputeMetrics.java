@@ -73,50 +73,49 @@ public class ComputeMetrics {
         c.setNR(c.getAssociatedCommits().size());
     }
 
-    private void setLOCAdded(Class c) throws IOException {
-        List<Integer> locAdded = getLOCAdded(c.getAssociatedCommits());
+    private void setLOCAndChurn(Class c) throws IOException {
+
+        List<List<Integer>> locAddedAndDeleted = getLOCAddedAndDeleted(c.getAssociatedCommits());
+        List<Integer> locAdded = locAddedAndDeleted.get(0);
+        List<Integer> locDeleted = locAddedAndDeleted.get(1);
+
+        // max LOC added
+        c.setMaxLOCAdded(getMax(locAdded));
+
+        // average LOC added
+        c.setAverageLOCAdded(computeAverage(locAdded));
+
+        // LOC added
         int sumLOCAdded = 0;
         for (int l : locAdded) {
             sumLOCAdded += l;
         }
 
         c.setLOCAdded(sumLOCAdded);
-    }
 
-    private void setMaxLOCAdded(Class c) throws IOException {
-        List<Integer> locAdded = getLOCAdded(c.getAssociatedCommits());
-        c.setMaxLOCAdded(getMax(locAdded));
-    }
 
-    private void setAverageLOCAdded(Class c) throws IOException {
-        List<Integer> locAdded = getLOCAdded(c.getAssociatedCommits());
-        c.setAverageLOCAdded(computeAverage(locAdded));
-    }
-
-    private void setChurn(Class c) throws IOException {
+        // Churn
         int churn = 0;
-        List<Integer> locAdded = getLOCAdded(c.getAssociatedCommits());
-        List<Integer> locDeleted = getLOCDeleted(c.getAssociatedCommits());
 
         for (int i = 0; i < locAdded.size(); i++) {
             churn += Math.abs(locAdded.get(i) - locDeleted.get(i));
         }
 
         c.setChurn(churn);
-    }
 
-    private void setMaxAverageChurn(Class c) throws IOException {
-        List<Integer> locAdded = getLOCAdded(c.getAssociatedCommits());
-        List<Integer> locDeleted = getLOCDeleted(c.getAssociatedCommits());
         List<Integer> churnValues = new ArrayList<>();
 
         for (int i = 0; i < locAdded.size(); i++) {
             churnValues.add(i, Math.abs(locAdded.get(i) - locDeleted.get(i)));
         }
 
+        // max Churn
         c.setMaxChurn(getMax(churnValues));
+
+        // average Churn
         c.setAverageChurn(computeAverage(churnValues));
     }
+
 
     private void setAge(Class c) {
         c.setAge(c.getRelease().getId());
@@ -147,38 +146,10 @@ public class ComputeMetrics {
         return (float) sum / array.size();
     }
 
-    private List<Integer> getLOCAdded(List<RevCommit> commits) throws IOException {
+    private List<List<Integer>> getLOCAddedAndDeleted(List<RevCommit> commits) throws IOException {
 
+        List<List<Integer>> locAddedAndDeleted = new ArrayList<>();
         List<Integer> locAdded = new ArrayList<>();
-        Repository repository = new FileRepository(projName.toLowerCase() + "/.git/");
-
-        for (RevCommit commit : commits) {
-            try (DiffFormatter diffFormatter = new DiffFormatter(NullOutputStream.INSTANCE)) {  // we're not interested in the output
-                diffFormatter.setRepository(repository);
-                diffFormatter.setDiffComparator(RawTextComparator.DEFAULT);
-                diffFormatter.setDetectRenames(true);
-
-                List<DiffEntry> diffEntries = diffFormatter.scan(commit.getParent(0).getTree(), commit.getTree());
-
-                for (DiffEntry entry : diffEntries) {
-                    for (Edit edit : diffFormatter.toFileHeader(entry).toEditList()) {
-                        locAdded.add(edit.getEndB() - edit.getBeginB());
-                    }
-
-                }
-
-            } catch (ArrayIndexOutOfBoundsException e) {
-
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        return locAdded;
-    }
-
-    private List<Integer> getLOCDeleted(List<RevCommit> commits) throws IOException {
-
         List<Integer> locDeleted = new ArrayList<>();
         Repository repository = new FileRepository(projName.toLowerCase() + "/.git/");
 
@@ -192,6 +163,7 @@ public class ComputeMetrics {
 
                 for (DiffEntry entry : diffEntries) {
                     for (Edit edit : diffFormatter.toFileHeader(entry).toEditList()) {
+                        locAdded.add(edit.getEndB() - edit.getBeginB());
                         locDeleted.add(edit.getEndA() - edit.getBeginA());
                     }
 
@@ -204,7 +176,10 @@ public class ComputeMetrics {
             }
         }
 
-        return locDeleted;
+        locAddedAndDeleted.add(0, locAdded);
+        locAddedAndDeleted.add(1, locDeleted);
+
+        return locAddedAndDeleted;
     }
 
     public void computeMetrics(List<Class> allClasses, String projName) throws IOException {
@@ -214,11 +189,7 @@ public class ComputeMetrics {
             setNAuth(c);
             setNR(c);
             setNFix(c);
-            setLOCAdded(c);
-            setMaxLOCAdded(c);
-            setAverageLOCAdded(c);
-            setChurn(c);
-            setMaxAverageChurn(c);
+            setLOCAndChurn(c);
             setAge(c);
         }
     }

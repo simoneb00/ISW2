@@ -175,6 +175,7 @@ public class TicketRetriever {
 
         if (ticket.affectedVersions != null && !ticket.affectedVersions.isEmpty()) {
 
+            // ASSUMPTION: we take as IV the earliest AV (i.e., the release in AV with the lowest id)
             Release injVersion = ticket.affectedVersions.get(0);
 
             for (Release affVersion: ticket.affectedVersions) {
@@ -217,34 +218,9 @@ public class TicketRetriever {
 
 
 
-    /*
-     *   proportion = (fixVersion - injectedVersion)/(fixVersion - openingVersion)
-     *
-     *   ASSUMPTION: we're considering in proportion's computation only the tickets with fixVersion > openingVersion > injectedVersion, in order to:
-     *   - avoid fixVersion = openingVersion -> proportion = infinity
-     *   - avoid fixVersion = injectedVersion -> proportion = 0
-     *   - discard invalid affectedVersions, i.e. with openingVersion > fixVersion, injectedVersion > fixVersion and injectedVersion > openingVersion
-     */
-
-/*
-    public static void computeProportion(Ticket ticket) {
-        if (ticket.fixVersion.getId() > ticket.openingVersion.getId()
-                && ticket.fixVersion.getId() > ticket.injectedVersion.getId()
-                && ticket.injectedVersion.getId() < ticket.openingVersion.getId()) {
-            ticket.proportion = (float)(ticket.fixVersion.getId() - ticket.injectedVersion.getId())/(ticket.fixVersion.getId() - ticket.openingVersion.getId());
-            System.out.println(ticket.proportion);
-        }
-    }
-
- */
-
-
     public static List<Ticket> getTicketsWithAV(List<Ticket> tickets) {
 
         List<Ticket> filteredTickets = filterTickets(tickets);
-
-        System.out.println(filteredTickets.size());
-
         List<Ticket> ticketsWithAV = new ArrayList<>();
 
         for (Ticket ticket : filteredTickets) {
