@@ -18,12 +18,14 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
-import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.eclipse.jgit.util.io.NullOutputStream;
 import utils.CSV;
 import utils.CommitUtils;
 
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.*;
@@ -54,7 +56,7 @@ public class CommitRetriever {
              *   ASSUMPTION: we're discarding the last half of releases, in order to have a smaller number of commits to handle
              */
 
-            LocalDateTime lastRelease = TicketRetriever.releases.get(Math.round(TicketRetriever.releases.size() / 2)).getDate();
+            LocalDateTime lastRelease = TicketRetriever.releases.get(Math.round((float)TicketRetriever.releases.size() / 2)).getDate();
 
             List<Ref> branches = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
 
@@ -62,13 +64,18 @@ public class CommitRetriever {
                 Iterable<RevCommit> branchCommits = git.log().add(repository.resolve(branch.getName())).call();
                 for (RevCommit commit : branchCommits) {
                     LocalDateTime commitDate = commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime();
-                    if (commitDate.isBefore(lastRelease) || commitDate.isEqual(lastRelease) && !commits.contains(commit))
-                        commits.add(commit);
+                    if (!commits.contains(commit)) {
+                        if (commitDate.isBefore(lastRelease) || commitDate.isEqual(lastRelease))
+                            commits.add(commit);
+                    }
+
                 }
             }
 
+            System.out.println("Number of total commits: " + commits.size());
+
             // initializing last commits for all releases
-            for (int i = 0; i < Math.round(TicketRetriever.releases.size() / 2); i++) {
+            for (int i = 0; i < Math.round((float)TicketRetriever.releases.size() / 2); i++) {
 
                 LocalDateTime firstDate;
 
@@ -86,8 +93,6 @@ public class CommitRetriever {
                     System.out.println(release.getId() + ": " + release.getAssociatedCommits().size() + ", last commit: " + release.getLastCommit().getAuthorIdent().getWhen());
             }
 
-
-            System.out.println("Number of total commits: " + commits.size());
 
             List<Release> releases = TicketRetriever.releases.subList(0, Math.round(TicketRetriever.releases.size() / 2));
             List<List<Class>> classes = new ArrayList<>();
@@ -124,7 +129,6 @@ public class CommitRetriever {
                     count++;
                 }
             }
-
 
 
             System.out.println("All classes: " + allClasses.size());

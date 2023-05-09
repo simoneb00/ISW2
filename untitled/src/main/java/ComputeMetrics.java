@@ -14,6 +14,7 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.transport.InternalHttpServerGlue;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
+import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.eclipse.jgit.util.io.NullOutputStream;
 import utils.CommitUtils;
 
@@ -47,7 +48,7 @@ public class ComputeMetrics {
 
     private void setSize(Class c) {
         Matcher m = Pattern.compile("\r\n|\r|\n").matcher(c.getImplementation());
-        int lines = 1;
+        int lines = 0;
         while (m.find())
         {
             lines ++;
@@ -75,9 +76,13 @@ public class ComputeMetrics {
 
     private void setLOCAndChurn(Class c) throws IOException {
 
-        List<List<Integer>> locAddedAndDeleted = getLOCAddedAndDeleted(c.getAssociatedCommits());
+        System.out.println("Computing LOC and churn for " + c.getName());
+        List<List<Integer>> locAddedAndDeleted = getLOCAddedAndDeleted(c);
         List<Integer> locAdded = locAddedAndDeleted.get(0);
         List<Integer> locDeleted = locAddedAndDeleted.get(1);
+
+        System.out.println(locAdded);
+        System.out.println(locDeleted);
 
         // max LOC added
         c.setMaxLOCAdded(getMax(locAdded));
@@ -146,15 +151,16 @@ public class ComputeMetrics {
         return (float) sum / array.size();
     }
 
-    private List<List<Integer>> getLOCAddedAndDeleted(List<RevCommit> commits) throws IOException {
+    private List<List<Integer>> getLOCAddedAndDeleted(Class c) throws IOException {
 
+        List<RevCommit> commits = c.getAssociatedCommits();
         List<List<Integer>> locAddedAndDeleted = new ArrayList<>();
         List<Integer> locAdded = new ArrayList<>();
         List<Integer> locDeleted = new ArrayList<>();
         Repository repository = new FileRepository(projName.toLowerCase() + "/.git/");
 
         for (RevCommit commit : commits) {
-            try (DiffFormatter diffFormatter = new DiffFormatter(NullOutputStream.INSTANCE)) {  // we're not interested in the output
+            try (DiffFormatter diffFormatter = new DiffFormatter(DisabledOutputStream.INSTANCE)) {  // we're not interested in the output
                 diffFormatter.setRepository(repository);
                 diffFormatter.setDiffComparator(RawTextComparator.DEFAULT);
                 diffFormatter.setDetectRenames(true);
@@ -162,11 +168,17 @@ public class ComputeMetrics {
                 List<DiffEntry> diffEntries = diffFormatter.scan(commit.getParent(0).getTree(), commit.getTree());
 
                 for (DiffEntry entry : diffEntries) {
-                    for (Edit edit : diffFormatter.toFileHeader(entry).toEditList()) {
-                        locAdded.add(edit.getEndB() - edit.getBeginB());
-                        locDeleted.add(edit.getEndA() - edit.getBeginA());
-                    }
+                    if (entry.getNewPath().equals(c.getName())) {
+                        int addedLOC = getAddedLines(diffFormatter, entry);
+                        int deletedLOC = getDeletedLines(diffFormatter, entry);
 
+                        if (addedLOC > 600) {
+                            System.out.println(commit.getShortMessage());
+                            System.out.println(commit.getAuthorIdent().getWhen());
+                        }
+                        locAdded.add(addedLOC);
+                        locDeleted.add(deletedLOC);
+                    }
                 }
 
             } catch (ArrayIndexOutOfBoundsException e) {
@@ -180,6 +192,26 @@ public class ComputeMetrics {
         locAddedAndDeleted.add(1, locDeleted);
 
         return locAddedAndDeleted;
+    }
+
+    private int getAddedLines(DiffFormatter diffFormatter, DiffEntry diffEntry) throws IOException {
+        int addedLOC = 0;
+
+        for (Edit edit : diffFormatter.toFileHeader(diffEntry).toEditList()) {
+            addedLOC += edit.getEndB() - edit.getBeginB();
+        }
+
+        return addedLOC;
+    }
+
+    private int getDeletedLines(DiffFormatter diffFormatter, DiffEntry diffEntry) throws IOException {
+        int deletedLOC = 0;
+
+        for (Edit edit : diffFormatter.toFileHeader(diffEntry).toEditList()) {
+            deletedLOC += edit.getEndA() - edit.getBeginA();
+        }
+
+        return deletedLOC;
     }
 
     public void computeMetrics(List<Class> allClasses, String projName) throws IOException {

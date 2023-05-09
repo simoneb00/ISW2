@@ -6,13 +6,11 @@ import java.util.List;
 
 public class Main {
 
+    public static String projName = "STORM";
     public static void main(String[] args) {
         try {
-            //List<Ticket> allTickets = TicketRetriever.retrieveTickets("BOOKKEEPER");
-            //CommitRetriever.retrieveCommits("BOOKKEEPER", allTickets);
-
-            List<Ticket> allTickets = TicketRetriever.retrieveTickets("STORM");
-            CommitRetriever.retrieveCommits("STORM", allTickets);
+            List<Ticket> allTickets = TicketRetriever.retrieveTickets(projName);
+            CommitRetriever.retrieveCommits(projName, allTickets);
 
         } catch (JSONException | IOException e) {
             e.printStackTrace();

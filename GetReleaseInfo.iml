@@ -10,5 +10,6 @@
     <orderEntry type="library" name="atlassian.jira.rest.java.client" level="project" />
     <orderEntry type="library" name="json" level="project" />
     <orderEntry type="library" name="eclipse.jgit" level="project" />
+    <orderEntry type="library" name="opencsv" level="project" />
   </component>
 </module>
