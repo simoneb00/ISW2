@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.util.List;
 
 public class CSV {
-    private static String FIRST_ROW = "Version, File Name, LOC, NAuth, NFix, Revisions, LOCAdded, MaxLOCAdded, averageLOCAdded, Churn, MaxChurn, AverageChurn, Age, Buggy";
+    private static String FIRST_ROW = "Version, File Name, LOC, NAuth, Fan-Out, Revisions, LOCAdded, MaxLOCAdded, averageLOCAdded, Churn, MaxChurn, AverageChurn, Time Span (days), Buggy";
 
     public static void generateCSV(List<Class> classes, String projName) throws IOException {
 
@@ -29,7 +29,7 @@ public class CSV {
                         c.getName() + ", " +
                         c.getSize() + ", " +
                         c.getNAuth() + ", " +
-                        c.getNFix() + ", " +
+                        c.getFanOut() + ", " +
                         c.getNR() + ", " +
                         c.getLOCAdded() + ", " +
                         c.getMaxLOCAdded() + ", " +
@@ -37,7 +37,7 @@ public class CSV {
                         c.getChurn() + ", " +
                         c.getMaxChurn() + ", " +
                         c.getAverageChurn() + ", " +
-                        c.getAge() + ", " +
+                        c.getTimeSpan() + ", " +
                         c.isBuggy();
 
                 bufferedWriter.append(row);

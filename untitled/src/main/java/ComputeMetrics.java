@@ -19,13 +19,14 @@ import org.eclipse.jgit.util.io.NullOutputStream;
 import utils.CommitUtils;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static java.util.concurrent.TimeUnit.DAYS;
 
 public class ComputeMetrics {
     private String projName;
@@ -58,16 +59,25 @@ public class ComputeMetrics {
     }
 
     private void setNAuth(Class c) {
-        Set<PersonIdent> authors = new HashSet<>();
+        Set<String> authors = new HashSet<>();
 
         for (RevCommit commit : c.getAssociatedCommits()) {
-            authors.add(commit.getAuthorIdent());
+            authors.add(commit.getAuthorIdent().getName());
         }
 
         c.setNAuth(authors.size());
     }
 
-    private void setNFix(Class c) {
+    private void setFanOut(Class c) {
+        String[] words = c.getImplementation().replaceAll("\\p{Punct}", "").replaceAll("\n", " ").split(" ");
+
+        int count = 0;
+        for (String word : words) {
+            if (word.equals("import"))
+                count++;
+        }
+
+        c.setFanOut(count);
     }
 
     private void setNR(Class c) {
@@ -122,9 +132,26 @@ public class ComputeMetrics {
     }
 
 
-    private void setAge(Class c) {
-        c.setAge(c.getRelease().getId());
+    /*   we're setting the time span in which the class has been modified,
+     *   i.e. the length of the time interval [A, B], where A is the date of the first commit in which c is modified, and B is the date of the last commit in which c in modified
+     */
+    private void setTimeSpan(Class c) {
+        List<LocalDateTime> commitsDates = new ArrayList<>();
+
+        for (RevCommit commit : c.getAssociatedCommits()) {
+            commitsDates.add(commit.getAuthorIdent().getWhen().toInstant().atZone(commit.getAuthorIdent().getZoneId()).toLocalDateTime());
+        }
+
+        if (commitsDates.size() <= 1) {
+            c.setTimeSpan(0);
+            return;
+        }
+
+        Collections.sort(commitsDates);
+
+        c.setTimeSpan(ChronoUnit.DAYS.between(commitsDates.get(0), commitsDates.get(commitsDates.size() - 1)));
     }
+
 
     private int getMax(List<Integer> array) {
         int max = 0;
@@ -220,9 +247,9 @@ public class ComputeMetrics {
             setSize(c);
             setNAuth(c);
             setNR(c);
-            setNFix(c);
             setLOCAndChurn(c);
-            setAge(c);
+            setFanOut(c);
+            setTimeSpan(c);
         }
     }
 }

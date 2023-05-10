@@ -22,6 +22,7 @@ import org.eclipse.jgit.util.io.NullOutputStream;
 import utils.CSV;
 import utils.CommitUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -41,13 +42,19 @@ public class CommitRetriever {
 
     private static List<Release> releases = new ArrayList<>();
 
-    public static void retrieveCommits(String projName, List<Ticket> allTickets) throws IOException, JSONException {
+    public static void retrieveCommits(String projName, List<Ticket> allTickets) throws IOException, JSONException, GitAPIException {
 
         releases = GetReleaseInfo.getReleaseInfo(projName);
 
         System.out.println("------------- retrieving the commits for " + projName + "-----------------");
 
-        repository = new FileRepository(projName.toLowerCase() + "/.git/");
+        File file = new File(projName.toLowerCase());
+        if (file.exists() && file.isDirectory())
+            repository = new FileRepository(projName.toLowerCase() + "/.git/");
+        else {
+            System.out.println("Cloning repository...");
+            repository = Git.cloneRepository().setURI("https://github.com/apache/" + projName.toLowerCase() + ".git").call().getRepository();
+        }
 
         try (Git git = new Git(repository)) {
 

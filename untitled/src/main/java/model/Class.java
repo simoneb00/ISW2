@@ -16,7 +16,7 @@ public class Class {
 
     private int size;
     private int NAuth;
-    private int NFix;
+    private int fanOut;
     private int NR;
     private int LOCAdded;
     private int maxLOCAdded;
@@ -24,7 +24,7 @@ public class Class {
     private int churn;
     private int maxChurn;
     private float averageChurn;
-    private int age;
+    private long timeSpan;
 
 
     public Class(String name, String implementation, Release release) {
@@ -35,7 +35,6 @@ public class Class {
         this.isBuggy = false;
         this.size = 0;
         this.NAuth = 0;
-        this.NFix = 0;
         this.NR = 0;
         this.LOCAdded = 0;
         this.maxLOCAdded = 0;
@@ -43,15 +42,15 @@ public class Class {
         this.churn = 0;
         this.maxChurn = 0;
         this.averageChurn = 0;
-        this.age = 0;
+        this.timeSpan = 0;
     }
 
-    public int getAge() {
-        return age;
+    public long getTimeSpan() {
+        return timeSpan;
     }
 
-    public void setAge(int age) {
-        this.age = age;
+    public void setTimeSpan(long timeSpan) {
+        this.timeSpan = timeSpan;
     }
 
     public int getMaxChurn() {
@@ -125,14 +124,6 @@ public class Class {
         this.NAuth = NAuth;
     }
 
-    public int getNFix() {
-        return NFix;
-    }
-
-    public void setNFix(int NFix) {
-        this.NFix = NFix;
-    }
-
     public int getNR() {
         return NR;
     }
@@ -171,4 +162,14 @@ public class Class {
 
     public void setChurn(int churn) {
         this.churn = churn;
-    }}
+    }
+
+    public int getFanOut() {
+        return fanOut;
+    }
+
+    public void setFanOut(int fanOut) {
+        this.fanOut = fanOut;
+    }
+}
+

@@ -37,7 +37,9 @@ public class Proportion {
             "ZOOKEEPER",
             "SYNCOPE",
             "TAJO",
-            "BOOKKEEPER"
+            "BOOKKEEPER",
+            "ACCUMULO",
+            "KAFKA"
     );
 
     public static void coldStartProportion(ArrayList<Ticket> tickets, String projName) throws JSONException, IOException {
