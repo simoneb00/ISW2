@@ -27,7 +27,7 @@ public class GetReleaseInfo {
 
     public static ArrayList<Release> releases;
 
-    public static ArrayList<Release> getReleaseInfo(String projName) throws IOException, JSONException, org.codehaus.jettison.json.JSONException {
+    public static List<Release> getReleaseInfo(String projName, boolean ignoreCSV, int numVersions, boolean splitReleases) throws IOException, JSONException, org.codehaus.jettison.json.JSONException {
 
         //Fills the arraylist with releases dates and orders them
         //Ignores releases with missing dates
@@ -86,7 +86,13 @@ public class GetReleaseInfo {
             }
         }
 
-        CSV.generateCSVForVersions(releases, projName);
+        if (!ignoreCSV)
+            CSV.generateCSVForVersions(releases, projName);
+
+        if (numVersions > 0)
+            return releases.subList(0, numVersions);
+        else if (splitReleases)
+            return releases.subList(0, Math.round((float)releases.size()/2));
         return releases;
     }
 

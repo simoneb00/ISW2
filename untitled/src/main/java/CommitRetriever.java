@@ -31,14 +31,15 @@ public class CommitRetriever {
 
     private static List<Release> releases = new ArrayList<>();
 
-    public static void retrieveCommits(String projName, List<Ticket> allTickets) throws IOException, JSONException, GitAPIException {
+    public static void retrieveCommits(String projName, List<Ticket> allTickets, int numVersions) throws IOException, JSONException, GitAPIException {
 
         List<Class> allClasses = new ArrayList<>();
         List<RevCommit> commits = new ArrayList<>();
 
-        releases = GetReleaseInfo.getReleaseInfo(projName);
+        releases = GetReleaseInfo.getReleaseInfo(projName, false, numVersions, true);
 
         System.out.println("------------- retrieving the commits for " + projName + "-----------------");
+        System.out.println(releases.size());
 
         File file = new File(projName.toLowerCase());
         if (file.exists() && file.isDirectory())
@@ -55,7 +56,7 @@ public class CommitRetriever {
              *   ASSUMPTION: we're discarding the last half of releases, in order to have a smaller number of commits to handle
              */
 
-            LocalDateTime lastRelease = TicketRetriever.releases.get(Math.round((float)TicketRetriever.releases.size() / 2)).getDate();
+            LocalDateTime lastRelease = releases.get(releases.size()-1).getDate();
 
             List<Ref> branches = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
 
@@ -74,28 +75,26 @@ public class CommitRetriever {
             System.out.println("Number of total commits: " + commits.size());
 
             // initializing last commits for all releases
-            for (int i = 0; i < Math.round((float)TicketRetriever.releases.size() / 2); i++) {
+            for (int i = 0; i < releases.size(); i++) {
 
                 LocalDateTime firstDate;
 
                 if (i == 0) {
                     firstDate = LocalDateTime.of(1970, 1, 1, 0, 0);
-                    initReleaseCommits(TicketRetriever.releases.get(i), firstDate, commits);
+                    initReleaseCommits(releases.get(i), firstDate, commits);
                 } else {
-                    firstDate = TicketRetriever.releases.get(i - 1).getDate();
-                    initReleaseCommits(TicketRetriever.releases.get(i), firstDate, commits);
+                    firstDate = releases.get(i - 1).getDate();
+                    initReleaseCommits(releases.get(i), firstDate, commits);
                 }
             }
 
             System.out.println("Last commits initialized.");
 
-            for (Release release : TicketRetriever.releases.subList(0, Math.round((float)TicketRetriever.releases.size() / 2))) {
+            for (Release release : releases) {
                 if (!release.getAssociatedCommits().isEmpty())
                     System.out.println(release.getId() + ": " + release.getAssociatedCommits().size() + ", last commit: " + release.getLastCommit().getAuthorIdent().getWhen());
             }
 
-
-            List<Release> releases = TicketRetriever.releases.subList(0, Math.round((float)TicketRetriever.releases.size() / 2));
             List<List<Class>> classes = new ArrayList<>();
 
             System.out.println("getting the classes");
@@ -162,7 +161,7 @@ public class CommitRetriever {
     }
 
     private static void labelBuggyClasses(List<Ticket> tickets, List<RevCommit> commits, List<Class> allClasses) {
-        List<Ticket> ticketsWithAV = TicketRetriever.getTicketsWithAV(tickets);   // these are all tickets with fv != iv, so the tickets for which it is possible to detect buggy classes
+        List<Ticket> ticketsWithAV = TicketRetriever.getTicketsWithAV(tickets, releases);   // these are all tickets with fv != iv, so the tickets for which it is possible to detect buggy classes
         System.out.println("Tickets with AV: " + ticketsWithAV.size());
 
         // we need to retrieve all the commits associated to all the tickets with AV
@@ -230,8 +229,10 @@ public class CommitRetriever {
             List<String> modifiedClasses = getModifiedClasses(commit);
             for (String modifiedClass : modifiedClasses) {
                 for (Class cls : allClasses) {
-                    if (modifiedClass.equals(cls.getName()) && getReleaseFromCommit(commit).getId() == cls.getRelease().getId() && !cls.getAssociatedCommits().contains(commit))
-                        cls.getAssociatedCommits().add(commit);
+                    if (!cls.getAssociatedCommits().contains(commit)) {
+                        if (modifiedClass.equals(cls.getName()) && getReleaseFromCommit(commit).getId() == cls.getRelease().getId())
+                            cls.getAssociatedCommits().add(commit);
+                    }
                 }
             }
         }

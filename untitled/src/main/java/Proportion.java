@@ -45,6 +45,7 @@ public class Proportion {
     public static void coldStartProportion(ArrayList<Ticket> tickets, String projName) throws JSONException, IOException {
 
         ArrayList<Float> proportionValues = new ArrayList<>();
+        List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, false);
 
         FileWriter fileWriter = null;
         Path proportionFile = Paths.get("Proportion" + projName + ".csv");
@@ -87,7 +88,7 @@ public class Proportion {
 
         for (Ticket ticket : tickets) {
             if (ticket.proportion == 0) {
-                ticket.injectedVersion = TicketRetriever.releases.get(
+                ticket.injectedVersion = releases.get(
                         Math.max(0, Math.round((float) ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportionValue) - 1)
                 );
             }
@@ -151,7 +152,8 @@ public class Proportion {
         ArrayList<Ticket> tickets = new ArrayList<>();
         JSONObject json;
 
-        List<Release> releases = GetReleaseInfo.getReleaseInfo(projName);
+        // numVersions = 0 means that we want all the versions
+        List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, false);
 
         System.out.println("Retrieving tickets for project " + projName);
 
@@ -164,7 +166,7 @@ public class Proportion {
 
             for (int i = 0; i < issues.length(); i++) {
                 try {
-                    tickets.add(TicketRetriever.getTicket(issues.getJSONObject(i), releases));
+                    tickets.add(TicketRetriever.getTicket(issues.getJSONObject(i), releases, releases.get(releases.size()-1).getDate()));
                 } catch (JSONException e) {
                     e.printStackTrace();
                 } catch (InvalidTicketException e) {

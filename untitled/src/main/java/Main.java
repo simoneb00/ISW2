@@ -10,11 +10,13 @@ public class Main {
 
     public static void main(String[] args) {
         try {
-            List<Ticket> allTickets = TicketRetriever.retrieveTickets("BOOKKEEPER");
-            CommitRetriever.retrieveCommits("BOOKKEEPER", allTickets);
+            List<Ticket> allTickets = TicketRetriever.retrieveTickets("BOOKKEEPER", 0);
+            CommitRetriever.retrieveCommits("BOOKKEEPER", allTickets, 0);
 
-            allTickets = TicketRetriever.retrieveTickets("STORM");
-            CommitRetriever.retrieveCommits("STORM", allTickets);
+            allTickets = TicketRetriever.retrieveTickets("STORM", 0);
+            CommitRetriever.retrieveCommits("STORM", allTickets, 0);
+
+            //WalkForward.initSets("BOOKKEEPER");
 
         } catch (JSONException | IOException | GitAPIException e) {
             e.printStackTrace();
