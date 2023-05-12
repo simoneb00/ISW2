@@ -1,24 +1,22 @@
+import exceptions.EmptyARFFException;
 import model.Class;
 import model.Release;
 import model.Ticket;
 import org.codehaus.jettison.json.JSONException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import utils.CSV;
+import weka.Weka;
 import weka.WekaUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class WalkForward {
-
-    public static void initSets(String projName) throws JSONException, IOException, GitAPIException {
+    public static List<List<File>> initSets(String projName) throws JSONException, IOException, GitAPIException {
+        List<List<File>> files = new ArrayList<>();
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, true);
         WekaUtils wekaUtils = new WekaUtils();
         // releases splitting
@@ -46,12 +44,33 @@ public class WalkForward {
                 wekaUtils.CSVToARFF(trainFile);
                 wekaUtils.CSVToARFF(testFile);
 
+                files.add(outputFiles);
+
             } else {
                 List<File> outputFiles =  CSV.generateCSVForWF(Collections.emptyList(), allClasses, projName, i);
                 File testFile = outputFiles.get(0);
                 wekaUtils.CSVToARFF(testFile);
             }
+        }
 
+        return files;
+    }
+
+    public static void classify(String projName) throws JSONException, IOException {
+        List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, true);
+        Weka weka = new Weka();
+
+        for (int i = 2; i <= releases.size(); i++) {
+
+            String trainSetPath = "/home/simoneb/ISW2/" + projName + "_" + i + "/" + projName + "_" + i + "_training-set.arff";
+            String testSetPath = "/home/simoneb/ISW2/" + projName + "_" + i + "/" + projName + "_" + i + "_testing-set.arff";
+
+            try {
+                weka.classify(trainSetPath, testSetPath);
+            } catch (EmptyARFFException e) {
+                System.out.println("empty arff");
+                // ignore, empty ARFF file
+            }
         }
     }
 }

@@ -1,10 +1,12 @@
 package weka;
 
+import com.opencsv.CSVReader;
 import weka.core.Instances;
 import weka.core.converters.ArffSaver;
 import weka.core.converters.CSVLoader;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 
 public class WekaUtils {
