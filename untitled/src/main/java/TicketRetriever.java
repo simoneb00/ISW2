@@ -4,15 +4,12 @@ import model.Ticket;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
-import org.eclipse.jgit.api.errors.GitAPIException;
 
-
-import java.io.*;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 import static utils.JSON.readJsonFromUrl;
 
@@ -91,7 +88,7 @@ public class TicketRetriever {
 
 
         LocalDateTime creationDate = LocalDateTime.parse(fields.get("created").toString().substring(0, 21));
-        ticket.openingVersion = getRelease(creationDate, rels);
+        ticket.openingVersion = getRelease(creationDate);
 
         // walk-forward
         if (creationDate.isAfter(lastDate)) {
@@ -99,7 +96,7 @@ public class TicketRetriever {
             throw new InvalidTicketException();
         }
 
-        ticket.fixVersion = getRelease(resolutionDate, rels);
+        ticket.fixVersion = getRelease(resolutionDate);
 
 
         JSONArray versions = fields.getJSONArray("versions");
@@ -110,7 +107,7 @@ public class TicketRetriever {
         } else {
             for (int i = 0; i < versions.length(); i++) {
                 if (versions.getJSONObject(i).has("releaseDate"))
-                    ticket.affectedVersions.add(getRelease(LocalDate.parse(versions.getJSONObject(i).get("releaseDate").toString()).atStartOfDay(), rels));
+                    ticket.affectedVersions.add(getRelease(LocalDate.parse(versions.getJSONObject(i).get("releaseDate").toString()).atStartOfDay()));
             }
         }
 
@@ -145,14 +142,12 @@ public class TicketRetriever {
     }
 
 
-    public static Release getRelease(LocalDateTime date, List<Release> rels) throws JSONException, IOException {
+    public static Release getRelease(LocalDateTime date) {
 
         int i = 0;
+        List<Release> rels = GetReleaseInfo.releases;
 
-        if (rels.size() == 1)
-            return rels.get(0);
-
-        while (i < rels.size() - 1 && rels.get(i).getDate().isBefore(date)) {
+        while (rels.get(i).getDate().isBefore(date)) {
            i++;
         }
 

@@ -92,7 +92,7 @@ public class GetReleaseInfo {
         if (numVersions > 0)
             return releases.subList(0, numVersions);
         else if (splitReleases)
-            return releases.subList(0, Math.round((float)releases.size()/2));
+            return releases.subList(0, Math.round((float)releases.size() / 2));
         return releases;
     }
 

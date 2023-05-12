@@ -86,13 +86,9 @@ public class ComputeMetrics {
 
     private void setLOCAndChurn(Class c) throws IOException {
 
-        System.out.println("Computing LOC and churn for " + c.getName());
         List<List<Integer>> locAddedAndDeleted = getLOCAddedAndDeleted(c);
         List<Integer> locAdded = locAddedAndDeleted.get(0);
         List<Integer> locDeleted = locAddedAndDeleted.get(1);
-
-        System.out.println(locAdded);
-        System.out.println(locDeleted);
 
         // max LOC added
         c.setMaxLOCAdded(getMax(locAdded));
@@ -199,10 +195,6 @@ public class ComputeMetrics {
                         int addedLOC = getAddedLines(diffFormatter, entry);
                         int deletedLOC = getDeletedLines(diffFormatter, entry);
 
-                        if (addedLOC > 600) {
-                            System.out.println(commit.getShortMessage());
-                            System.out.println(commit.getAuthorIdent().getWhen());
-                        }
                         locAdded.add(addedLOC);
                         locDeleted.add(deletedLOC);
                     }
