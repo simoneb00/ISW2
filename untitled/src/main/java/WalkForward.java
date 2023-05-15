@@ -15,41 +15,85 @@ import java.util.Collections;
 import java.util.List;
 
 public class WalkForward {
+
+    /*
+     *  Walk-Forward: for each iteration i = 1, ..., n-1 (if the releases are n), we have a different dataset:
+     *  -  training set i : all releases up to i - 1;
+     *  -  testing set i: release i;
+     *
+     *  In order to create the training set (e.g. releases 1, 2, ..., k), we must use all data available until the date corresponding to the release k.
+     *  Instead, in order to create the testing set, we can use all the available data (ASSUMPTION).
+     *
+     */
     public static List<List<File>> initSets(String projName) throws JSONException, IOException, GitAPIException {
         List<List<File>> files = new ArrayList<>();
-        List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, true);
+        List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, false);
         WekaUtils wekaUtils = new WekaUtils();
         // releases splitting
         //releases = releases.subList(0, Math.round((float)releases.size() / 2));
 
+        // here we retrieve all tickets and classes, in order to create the testing sets for all the iterations
+        List<Ticket> allTickets = TicketRetriever.retrieveTickets(projName, releases.size());
+        List<Class> allClasses = CommitRetriever.retrieveCommits(projName, allTickets, releases.size());
+        CSV.generateCSV(allClasses, projName, releases.size());
+
         // we have to create different CSV files: for each iteration, starting just with the first release, we add the next release
-        for (int i = 1; i <= releases.size(); i++) {
-            System.out.println("\n\nRetrieving tickets for the first " + i + " releases");
-            List<Ticket> tickets = TicketRetriever.retrieveTickets(projName, i);
-            List<Class> allClasses = CommitRetriever.retrieveCommits(projName, tickets, i);
+        for (int i = 1; i <= Math.round((float)releases.size() / 2); i++) {
 
+            /* i must be > 1: we skip the first iteration, as it doesn't have the training set -> inaccurate predictions */
             if (i > 1) {
-                List<Class> classesForTrainingSet = new ArrayList<>();
-                List<Class> classesForTestingSet = new ArrayList<>();
+
+                // training set
+                System.out.println("\n\nRetrieving tickets for the first " + i + " releases");
+                List<Ticket> ticketsForTrainSet = TicketRetriever.retrieveTickets(projName, i - 1);
+                List<Class> classesForTrainSet = CommitRetriever.retrieveCommits(projName, ticketsForTrainSet, i - 1);
+
+                File trainFile = CSV.generateCSVForWF(CSV.Type.TRAINING_SET, classesForTrainSet, projName, i);
+
+                // testing set
+                List<Class> classesForTestSet = new ArrayList<>();
                 for (Class c : allClasses) {
-                    if (c.getRelease().getId() < i)
-                        classesForTrainingSet.add(c);
-                    else
-                        classesForTestingSet.add(c);
+                    if (c.getRelease().getId() == i)
+                        classesForTestSet.add(c);
                 }
-                List<File> outputFiles = CSV.generateCSVForWF(classesForTrainingSet, classesForTestingSet, projName, i);
-                File trainFile = outputFiles.get(0);
-                File testFile = outputFiles.get(1);
 
-                wekaUtils.CSVToARFF(trainFile);
-                wekaUtils.CSVToARFF(testFile);
+                File testFile = CSV.generateCSVForWF(CSV.Type.TESTING_SET, classesForTestSet, projName, i);
 
-                files.add(outputFiles);
+                File trainArff = wekaUtils.CSVToARFF(trainFile);
+                File testArff = wekaUtils.CSVToARFF(testFile);
 
-            } else {
-                List<File> outputFiles =  CSV.generateCSVForWF(Collections.emptyList(), allClasses, projName, i);
-                File testFile = outputFiles.get(0);
-                wekaUtils.CSVToARFF(testFile);
+                wekaUtils.removeAttribute(trainArff);
+                wekaUtils.removeAttribute(testArff);
+
+                /*
+                if (i > 1) {
+                    List<Class> classesForTrainingSet = new ArrayList<>();
+                    List<Class> classesForTestingSet = new ArrayList<>();
+                    for (Class c : allClasses) {
+                        if (c.getRelease().getId() < i)
+                            classesForTrainingSet.add(c);
+                        else
+                            classesForTestingSet.add(c);
+                    }
+                    List<File> outputFiles = CSV.generateCSVForWF(classesForTrainingSet, classesForTestingSet, projName, i);
+                    File trainFile = outputFiles.get(0);
+                    File testFile = outputFiles.get(1);
+
+                    File trainArff = wekaUtils.CSVToARFF(trainFile);
+                    File testArff = wekaUtils.CSVToARFF(testFile);
+
+                    wekaUtils.removeAttribute(trainArff);
+                    wekaUtils.removeAttribute(testArff);
+
+                    files.add(outputFiles);
+
+                } else {
+                    List<File> outputFiles = CSV.generateCSVForWF(Collections.emptyList(), allClasses, projName, i);
+                    File testFile = outputFiles.get(0);
+                    wekaUtils.CSVToARFF(testFile);
+                }
+
+                 */
             }
         }
 

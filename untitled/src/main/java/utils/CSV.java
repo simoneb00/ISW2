@@ -11,6 +11,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CSV {
+
+    public enum Type {
+        TRAINING_SET,
+        TESTING_SET
+    }
     private static String FIRST_ROW = "Version, File Name, LOC, NAuth, Fan-Out, Revisions, LOCAdded, MaxLOCAdded, averageLOCAdded, Churn, MaxChurn, AverageChurn, Time Span (days), Buggy";
 
     public static void generateCSV(List<Class> classes, String projName, int numVersions) throws IOException {
@@ -66,6 +71,28 @@ public class CSV {
 
     }
 
+    public static File generateCSVForWF(Type type, List<Class> classes, String projName, int iteration) throws IOException {
+        if (type == Type.TRAINING_SET) {
+            File trainFile = new File("/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" + iteration + "_training-set.csv");
+            trainFile.getParentFile().mkdirs();
+            trainFile.createNewFile();
+            PopulateFile(classes, trainFile);
+            return trainFile;
+        }
+        else if (type == Type.TESTING_SET) {
+            File testFile = new File("/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" +  iteration + "_testing-set.csv");
+            testFile.getParentFile().mkdirs();
+            testFile.createNewFile();
+            PopulateFile(classes, testFile);
+            return testFile;
+        }
+
+        return null;
+    }
+
+
+    /*
+
     public static List<File> generateCSVForWF(List<Class> classesForTrainSet, List<Class> classesForTestSet, String projName, int iteration) throws IOException {
 
         // outputFiles[0] = training set file, outputFiles[1] = testing set file
@@ -96,6 +123,10 @@ public class CSV {
 
         return outputFiles;
     }
+
+     */
+
+
 
     public static void generateCSVForVersions(List<Release> releases, String projName) {
         FileWriter fileWriter = null;

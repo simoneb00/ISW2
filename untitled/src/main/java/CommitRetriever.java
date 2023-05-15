@@ -54,7 +54,7 @@ public class CommitRetriever {
              *   ASSUMPTION: we're discarding the last half of releases, in order to have a smaller number of commits to handle
              */
 
-            LocalDateTime lastRelease = releases.get(releases.size()-1).getDate();
+            LocalDateTime lastRelease = releases.get(releases.size() - 1).getDate();
 
             System.out.println("Last release: " + lastRelease);
 
@@ -73,6 +73,14 @@ public class CommitRetriever {
             }
 
             System.out.println("Number of total commits: " + commits.size());
+
+            for (Ticket ticket : allTickets) {
+                System.out.println(ticket.key);
+            }
+
+            for (RevCommit commit : commits) {
+                System.out.println(commit.getShortMessage());
+            }
 
             // initializing last commits for all releases
             for (int i = 0; i < releases.size(); i++) {
@@ -101,7 +109,6 @@ public class CommitRetriever {
 
             for (Release release : releases) {
                 if (!release.getAssociatedCommits().isEmpty()) {
-                    System.out.println(release.getId());
                     classes.add(getClassesFromReleaseCommit(release));
                 }
             }
@@ -115,13 +122,13 @@ public class CommitRetriever {
 
             retrieveCommitsForClasses(commits, allClasses);
 
-            for (Class c : allClasses) {
-                System.out.println(c.getName() + ", " + c.getRelease().getName() + "; " + c.getAssociatedCommits().size());
+            System.out.println("commits associated to classes: " + commits.size());
 
-            }
-
-            System.out.println(commits.size());
-
+            System.out.println("CHECK");
+            System.out.println("tickets: " + allTickets.size());
+            System.out.println("commits: " + commits.size());
+            System.out.println("classes: " + allClasses.size());
+            System.out.println("releases: " + releases.size());
             labelBuggyClasses(allTickets, commits, allClasses, releases);
 
             int count = 0;
@@ -137,7 +144,7 @@ public class CommitRetriever {
 
             System.out.println("All classes: " + allClasses.size());
             System.out.println("Buggy classes: " + count);
-            System.out.println("Versions of the buggy classes: " + versions);
+            System.out.println(numVersions + ": Versions of the buggy classes: " + versions);
 
             ComputeMetrics computeMetrics = new ComputeMetrics();
             computeMetrics.computeMetrics(allClasses, projName);
@@ -153,18 +160,45 @@ public class CommitRetriever {
     }
 
     private static void labelClasses(String className, Ticket ticket, List<Class> allClasses) {
+
+        if (ticket.fixVersion == null)
+            return;
         for (Class cls : allClasses) {
             if (cls.getName().equals(className) && cls.getRelease().getId() >= ticket.injectedVersion.getId() && cls.getRelease().getId() < ticket.fixVersion.getId()) {
                 cls.setBuggy(true);
+                System.out.println("Class " + cls.getName() + " of release " + cls.getRelease().getId() + "is buggy according to ticket " + ticket.key);
             }
+
         }
 
     }
 
+
+
     private static void labelBuggyClasses(List<Ticket> tickets, List<RevCommit> commits, List<Class> allClasses, List<Release> releases) throws JSONException, IOException {
 
+        System.out.println("---------------- LABELING ------------------");
+        System.out.println("Printing all commits: ");
+
+        for (RevCommit commit : commits) {
+            System.out.println(commit.getShortMessage());
+        }
+
         List<Ticket> ticketsWithAV = TicketRetriever.getTicketsWithAV(tickets, releases);   // these are all tickets with fv != iv, so the tickets for which it is possible to detect buggy classes
-        System.out.println("Tickets with AV: " + ticketsWithAV.size());
+        System.out.println("Tickets with AV: " + ticketsWithAV.size() + " - " + releases.size());
+
+        System.out.println("Tickets with fv = null: ");
+        int count = 0;
+        for (Ticket ticket : ticketsWithAV) {
+            if (ticket.fixVersion == null) {
+                count++;
+                System.out.println(ticket.key);
+            } else {
+                System.out.println(ticket.fixVersion.getName());
+            }
+        }
+
+        System.out.println("Release " + releases.size() + ", tickets with fv = null: " + count);
 
         // we need to retrieve all the commits associated to all the tickets with AV
         for (Ticket ticket : ticketsWithAV) {
@@ -225,7 +259,6 @@ public class CommitRetriever {
      */
     private static void retrieveCommitsForClasses(List<RevCommit> commits, List<Class> allClasses) throws IOException, JSONException {
         for (RevCommit commit : commits) {
-            System.out.println(commit.getShortMessage());
             List<String> modifiedClasses = getModifiedClasses(commit);
             for (String modifiedClass : modifiedClasses) {
                 for (Class cls : allClasses) {

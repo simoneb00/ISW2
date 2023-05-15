@@ -27,11 +27,9 @@ public class Main {
 
             WalkForward.classify("BOOKKEEPER");
 
-        } catch (JSONException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (GitAPIException e) {
+            /* TODO: considerare come buggy anche le classi relative ai ticket aperti ma non ancora risolti */
+
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 

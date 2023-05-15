@@ -1,6 +1,7 @@
 package model;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class Ticket {
 
@@ -10,6 +11,7 @@ public class Ticket {
     public Release fixVersion;    // fix version
     public Release openingVersion;      // opening version
     public Release injectedVersion;
+    public List<String> affectedComponents = new ArrayList<>();
     public float proportion = 0;
 
 

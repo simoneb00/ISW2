@@ -88,9 +88,10 @@ public class Proportion {
 
         for (Ticket ticket : tickets) {
             if (ticket.proportion == 0) {
-                ticket.injectedVersion = releases.get(
-                        Math.max(0, Math.round((float) ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportionValue) - 1)
-                );
+                if (ticket.fixVersion != null) {
+                    ticket.injectedVersion = releases.get(
+                            Math.max(0, Math.round((float) ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportionValue)));
+                }
             }
         }
     }
@@ -138,6 +139,12 @@ public class Proportion {
      *  ASSUMPTION: we consider only tickets with consistent AV, i.e. with IV (earliest release in AV) <= OV. In the case of FV = OV, in order to avoid denominator going to infinity, we assume FV - AV = 1
      */
     public static void computeProportion(Ticket ticket) {
+
+        if (ticket.fixVersion == null) {
+            /* this ticket is not available */
+            return;
+        }
+
         if (ticket.injectedVersion.getId() <= ticket.openingVersion.getId() && ticket.fixVersion.getId() == ticket.openingVersion.getId())
             ticket.proportion = ticket.fixVersion.getId() - ticket.injectedVersion.getId();
         else if (ticket.injectedVersion.getId() <= ticket.openingVersion.getId() && ticket.openingVersion.getId() < ticket.fixVersion.getId()) {

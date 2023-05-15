@@ -7,6 +7,7 @@ import weka.classifiers.evaluation.output.prediction.PlainText;
 import weka.classifiers.lazy.IBk;
 import weka.classifiers.trees.J48;
 import weka.classifiers.trees.RandomForest;
+import weka.core.Attribute;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.converters.ArffLoader;
@@ -32,6 +33,9 @@ public class Weka {
         if (arffReader.getData().isEmpty())
             throw new EmptyARFFException();
 
+        if (arffReader.getStructure().attribute(arffReader.getStructure().numAttributes() - 1).numValues() == 1)
+            throw new EmptyARFFException();
+
         file = new File(ARFFTestingSet);
         fileReader = new FileReader(file);
         arffReader = new ArffLoader.ArffReader(fileReader);
@@ -48,7 +52,7 @@ public class Weka {
             Instances trainData = trainSource.getDataSet();
             Instances testData = testSource.getDataSet();
 
-
+/*
             String[] options = new String[2];
             options[0] = "-R";
             options[1] = "2";
@@ -66,18 +70,21 @@ public class Weka {
             arffSaver.setFile(new File(ARFFTrainingSet));
             arffSaver.writeBatch();
 
+
             arffSaver.setInstances(test);
             arffSaver.setFile(new File(ARFFTestingSet));
             arffSaver.writeBatch();
 
-            train.setClassIndex(train.numAttributes() - 1);
-            test.setClassIndex(train.numAttributes() - 1);
 
-            Evaluation eval = new Evaluation(train);
+ */
+            trainData.setClassIndex(trainData.numAttributes() - 1);
+            testData.setClassIndex(trainData.numAttributes() - 1);
 
-            NBClassification(train, test, eval);
-            IBkClassification(train, test, eval);
-            RFClassification(train, test, eval);
+            Evaluation eval = new Evaluation(trainData);
+
+            NBClassification(trainData, testData, eval);
+            IBkClassification(trainData, testData, eval);
+            RFClassification(trainData, testData, eval);
 
         } catch (Exception e) {
             e.printStackTrace();
