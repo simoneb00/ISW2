@@ -12,9 +12,9 @@ public class CommitUtils {
         List<RevCommit> assCommits = new ArrayList<>();
 
         for (RevCommit commit : allCommits) {
-            if (!assCommits.contains(commit))
-                if (commit.getFullMessage().contains(ticket.key + ":") || commit.getFullMessage().contains("[" + ticket.key))
-                    assCommits.add(commit);
+            String fullMessage = commit.getFullMessage();
+            if ((fullMessage.contains(ticket.key + ":") || fullMessage.contains(ticket.key + "]") || fullMessage.contains(ticket.key + " ") || fullMessage.contains("/" + ticket.key)) && !assCommits.contains(commit))
+                assCommits.add(commit);
         }
 
         return assCommits;

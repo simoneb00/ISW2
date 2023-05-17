@@ -86,11 +86,20 @@ public class Proportion {
 
         System.out.println("Proportion value: " + proportionValue);
 
+        System.out.println("releases: ");
+        for (Release release : releases) {
+            System.out.println(release.getId());
+        }
+
         for (Ticket ticket : tickets) {
-            if (ticket.proportion == 0) {
+            if (ticket.injectedVersion == null) {
                 if (ticket.fixVersion != null) {
-                    ticket.injectedVersion = releases.get(
-                            Math.max(0, Math.round((float) ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportionValue)));
+                    /* TODO improve */
+                    if (ticket.openingVersion.getId() == ticket.fixVersion.getId())
+                        ticket.injectedVersion = releases.get(Math.max(0, ticket.fixVersion.getId() - 3));
+                    else
+                        ticket.injectedVersion = releases.get(
+                            Math.max(0, Math.round((float) ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportionValue) - 1));
                 }
             }
         }

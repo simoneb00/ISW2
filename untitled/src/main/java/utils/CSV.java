@@ -1,6 +1,7 @@
 package utils;
 
 import model.Class;
+import model.EvaluationReport;
 import model.Release;
 
 import java.io.BufferedWriter;
@@ -88,6 +89,45 @@ public class CSV {
         }
 
         return null;
+    }
+
+    public static void generateCSVForReports(List<EvaluationReport> reports) {
+        FileWriter fileWriter = null;
+        BufferedWriter bufferedWriter = null;
+
+        try {
+            fileWriter = new FileWriter(new File("report.csv"));
+            bufferedWriter = new BufferedWriter(fileWriter);
+            bufferedWriter.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa, Feature Selection");
+            bufferedWriter.append("\n");
+
+            for (EvaluationReport report : reports) {
+                String row = report.getDataset() + ", "
+                        + report.getIteration() + ", "
+                        + report.getClassifier().toString().toLowerCase() + ", "
+                        + report.getPrecision() + ", "
+                        + report.getRecall() + ", "
+                        + report.getAUC() + ", "
+                        + report.getKappa() + ", "
+                        + report.isFeatureSelection();
+
+                bufferedWriter.append(row);
+                bufferedWriter.append("\n");
+            }
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                fileWriter.flush();
+                bufferedWriter.flush();
+                fileWriter.close();
+                bufferedWriter.close();
+            } catch (IOException e) {
+                System.out.println("Error while flushing/closing fileWriter !!!");
+                e.printStackTrace();
+            }
+        }
     }
 
 

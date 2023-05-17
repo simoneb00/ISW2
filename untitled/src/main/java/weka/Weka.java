@@ -1,31 +1,32 @@
 package weka;
 
-import com.sun.xml.bind.v2.runtime.unmarshaller.IntArrayData;
 import exceptions.EmptyARFFException;
+import model.EvaluationReport;
+import weka.attributeSelection.CfsSubsetEval;
+import weka.attributeSelection.GreedyStepwise;
 import weka.classifiers.Evaluation;
-import weka.classifiers.evaluation.output.prediction.PlainText;
+import weka.classifiers.bayes.NaiveBayes;
 import weka.classifiers.lazy.IBk;
-import weka.classifiers.trees.J48;
 import weka.classifiers.trees.RandomForest;
-import weka.core.Attribute;
-import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.converters.ArffLoader;
-import weka.core.converters.ArffSaver;
 import weka.core.converters.ConverterUtils.DataSource;
-import weka.classifiers.bayes.NaiveBayes;
 import weka.filters.Filter;
-import weka.filters.unsupervised.attribute.Remove;
+import weka.filters.supervised.attribute.AttributeSelection;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Weka {
 
     // Random Forest, Naive Bayes, IBk
 
-    public void classify(String ARFFTrainingSet, String ARFFTestingSet) throws IOException, EmptyARFFException {
+    public List<EvaluationReport> classify(String ARFFTrainingSet, String ARFFTestingSet, int iteration, String projName) throws IOException, EmptyARFFException {
+
+        List<EvaluationReport> reports = new ArrayList<>();
 
         File file = new File(ARFFTrainingSet);
         FileReader fileReader = new FileReader(file);
@@ -43,6 +44,9 @@ public class Weka {
             throw new EmptyARFFException();
 
         try {
+
+            // without feature selection
+
             System.out.println(ARFFTrainingSet);
             System.out.println(ARFFTestingSet);
 
@@ -52,58 +56,57 @@ public class Weka {
             Instances trainData = trainSource.getDataSet();
             Instances testData = testSource.getDataSet();
 
-/*
-            String[] options = new String[2];
-            options[0] = "-R";
-            options[1] = "2";
-            Remove remove = new Remove();
-            remove.setOptions(options);
-
-            remove.setInputFormat(trainData);
-            Instances train = Filter.useFilter(trainData, remove);
-
-            remove.setInputFormat(testData);
-            Instances test = Filter.useFilter(testData, remove);
-
-            ArffSaver arffSaver = new ArffSaver();
-            arffSaver.setInstances(train);
-            arffSaver.setFile(new File(ARFFTrainingSet));
-            arffSaver.writeBatch();
-
-
-            arffSaver.setInstances(test);
-            arffSaver.setFile(new File(ARFFTestingSet));
-            arffSaver.writeBatch();
-
-
- */
             trainData.setClassIndex(trainData.numAttributes() - 1);
             testData.setClassIndex(trainData.numAttributes() - 1);
 
             Evaluation eval = new Evaluation(trainData);
 
-            NBClassification(trainData, testData, eval);
-            IBkClassification(trainData, testData, eval);
-            RFClassification(trainData, testData, eval);
+            reports.add(NBClassification(trainData, testData, eval, iteration, projName, false));
+            reports.add(IBkClassification(trainData, testData, eval, iteration, projName, false));
+            reports.add(RFClassification(trainData, testData, eval, iteration, projName, false));
+
+
+            // feature selection
+
+            weka.filters.supervised.attribute.AttributeSelection filter = new AttributeSelection();
+            CfsSubsetEval cfsSubsetEval = new CfsSubsetEval();
+            GreedyStepwise search = new GreedyStepwise();
+            search.setSearchBackwards(true);
+
+            filter.setEvaluator(cfsSubsetEval);
+            filter.setSearch(search);
+
+            filter.setInputFormat(trainData);
+            Instances filteredTrainingData = Filter.useFilter(trainData, filter);
+            filteredTrainingData.setClassIndex(filteredTrainingData.numAttributes() - 1);
+
+            Instances filteredTestingData = Filter.useFilter(testData, filter);
+            filteredTestingData.setClassIndex(filteredTestingData.numAttributes() - 1);
+
+            reports.add(NBClassification(filteredTrainingData, filteredTestingData, eval, iteration, projName, true));
+            reports.add(IBkClassification(filteredTrainingData, filteredTestingData, eval, iteration, projName, true));
+            reports.add(RFClassification(filteredTrainingData, filteredTestingData, eval, iteration, projName, true));
+
 
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
             fileReader.close();
         }
+
+        return reports;
     }
 
-    private void NBClassification(Instances train, Instances test, Evaluation eval) throws Exception {
+    private EvaluationReport NBClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection) throws Exception {
         NaiveBayes naiveBayes = new NaiveBayes();
         naiveBayes.buildClassifier(train);
 
         // evaluation
-        System.out.println("Naive Bayes results: ");
         eval.evaluateModel(naiveBayes, test);
-        System.out.println(eval.toSummaryString());
+        return new EvaluationReport(iteration, EvaluationReport.Classifiers.NAIVE_BAYES, projName + " - " + iteration, eval.precision(1), eval.recall(1), eval.areaUnderROC(1), eval.kappa(), featureSelection);
     }
 
-    private void RFClassification(Instances train, Instances test, Evaluation eval) throws Exception {
+    private EvaluationReport RFClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection) throws Exception {
 
         RandomForest randomForest = new RandomForest();
         randomForest.buildClassifier(train);
@@ -111,17 +114,18 @@ public class Weka {
         // evaluation
         System.out.println("Random Forest results: ");
         eval.evaluateModel(randomForest, test);
-        System.out.println(eval.toSummaryString());
+        return new EvaluationReport(iteration, EvaluationReport.Classifiers.RANDOM_FOREST, projName + " - " + iteration, eval.precision(1), eval.recall(1), eval.areaUnderROC(1), eval.kappa(), featureSelection);
+
     }
 
-    private void IBkClassification(Instances train, Instances test, Evaluation eval) throws Exception {
+    private EvaluationReport IBkClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection) throws Exception {
         IBk iBk = new IBk();
         iBk.buildClassifier(train);
 
         // evaluation
         System.out.println("IBk results: ");
         eval.evaluateModel(iBk, test);
-        System.out.println(eval.toSummaryString());
+        return new EvaluationReport(iteration, EvaluationReport.Classifiers.IBK, projName + " - " + iteration, eval.precision(1), eval.recall(1), eval.areaUnderROC(1), eval.kappa(), featureSelection);
     }
 }
 

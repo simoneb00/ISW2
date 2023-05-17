@@ -10,7 +10,7 @@ public class Ticket {
     public ArrayList<Release> affectedVersions = new ArrayList<>();
     public Release fixVersion;    // fix version
     public Release openingVersion;      // opening version
-    public Release injectedVersion;
+    public Release injectedVersion = null;
     public List<String> affectedComponents = new ArrayList<>();
     public float proportion = 0;
 

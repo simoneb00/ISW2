@@ -1,5 +1,6 @@
 import exceptions.EmptyARFFException;
 import model.Class;
+import model.EvaluationReport;
 import model.Release;
 import model.Ticket;
 import org.codehaus.jettison.json.JSONException;
@@ -29,8 +30,6 @@ public class WalkForward {
         List<List<File>> files = new ArrayList<>();
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, false);
         WekaUtils wekaUtils = new WekaUtils();
-        // releases splitting
-        //releases = releases.subList(0, Math.round((float)releases.size() / 2));
 
         // here we retrieve all tickets and classes, in order to create the testing sets for all the iterations
         List<Ticket> allTickets = TicketRetriever.retrieveTickets(projName, releases.size());
@@ -38,32 +37,31 @@ public class WalkForward {
         CSV.generateCSV(allClasses, projName, releases.size());
 
         // we have to create different CSV files: for each iteration, starting just with the first release, we add the next release
-        for (int i = 1; i <= Math.round((float)releases.size() / 2); i++) {
+        for (int i = 2; i <= Math.round((float) releases.size() / 2); i++) {
 
             /* i must be > 1: we skip the first iteration, as it doesn't have the training set -> inaccurate predictions */
-            if (i > 1) {
 
-                // training set
-                System.out.println("\n\nRetrieving tickets for the first " + i + " releases");
-                List<Ticket> ticketsForTrainSet = TicketRetriever.retrieveTickets(projName, i - 1);
-                List<Class> classesForTrainSet = CommitRetriever.retrieveCommits(projName, ticketsForTrainSet, i - 1);
+            // training set
+            System.out.println("\n\nRetrieving tickets for the first " + i + " releases");
+            List<Ticket> ticketsForTrainSet = TicketRetriever.retrieveTickets(projName, i - 1);
+            List<Class> classesForTrainSet = CommitRetriever.retrieveCommits(projName, ticketsForTrainSet, i - 1);
 
-                File trainFile = CSV.generateCSVForWF(CSV.Type.TRAINING_SET, classesForTrainSet, projName, i);
+            File trainFile = CSV.generateCSVForWF(CSV.Type.TRAINING_SET, classesForTrainSet, projName, i);
 
-                // testing set
-                List<Class> classesForTestSet = new ArrayList<>();
-                for (Class c : allClasses) {
-                    if (c.getRelease().getId() == i)
-                        classesForTestSet.add(c);
-                }
+            // testing set
+            List<Class> classesForTestSet = new ArrayList<>();
+            for (Class c : allClasses) {
+                if (c.getRelease().getId() == i)
+                    classesForTestSet.add(c);
+            }
 
-                File testFile = CSV.generateCSVForWF(CSV.Type.TESTING_SET, classesForTestSet, projName, i);
+            File testFile = CSV.generateCSVForWF(CSV.Type.TESTING_SET, classesForTestSet, projName, i);
 
-                File trainArff = wekaUtils.CSVToARFF(trainFile);
-                File testArff = wekaUtils.CSVToARFF(testFile);
+            File trainArff = wekaUtils.CSVToARFF(trainFile);
+            File testArff = wekaUtils.CSVToARFF(testFile);
 
-                wekaUtils.removeAttribute(trainArff);
-                wekaUtils.removeAttribute(testArff);
+            wekaUtils.removeAttribute(trainArff);
+            wekaUtils.removeAttribute(testArff);
 
                 /*
                 if (i > 1) {
@@ -94,7 +92,7 @@ public class WalkForward {
                 }
 
                  */
-            }
+
         }
 
         return files;
@@ -103,6 +101,7 @@ public class WalkForward {
     public static void classify(String projName) throws JSONException, IOException {
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, true);
         Weka weka = new Weka();
+        List<EvaluationReport> reports = new ArrayList<>();
 
         for (int i = 2; i <= releases.size(); i++) {
 
@@ -110,11 +109,13 @@ public class WalkForward {
             String testSetPath = "/home/simoneb/ISW2/" + projName + "_" + i + "/" + projName + "_" + i + "_testing-set.arff";
 
             try {
-                weka.classify(trainSetPath, testSetPath);
+                reports.addAll(weka.classify(trainSetPath, testSetPath, i, projName));
             } catch (EmptyARFFException e) {
                 System.out.println("empty arff");
                 // ignore, empty ARFF file
             }
         }
+
+        CSV.generateCSVForReports(reports);
     }
 }

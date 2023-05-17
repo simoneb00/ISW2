@@ -58,10 +58,17 @@ public class TicketRetriever {
         }
 
         System.out.println("Tickets having proportion (project " + projName + "):" + count + " over " + tickets.size() + " tickets");
-        System.out.println("proportion mean (project " + projName + "):" + getProportionMean(tickets));
-
 
         Proportion.coldStartProportion(tickets, projName);
+
+        count = 0;
+
+        for (Ticket ticket : tickets) {
+            if (ticket.fixVersion != null)
+                System.out.println(ticket.key + " - " + ticket.injectedVersion.getId() + ", " + ticket.openingVersion.getId() + ", " + ticket.fixVersion.getId());
+        }
+
+        System.out.println("Tickets having injected version: " + count);
 
         return tickets;
 
@@ -128,8 +135,11 @@ public class TicketRetriever {
                     injVersion = affVersion;
             }
 
-            ticket.injectedVersion = injVersion;
-            Proportion.computeProportion(ticket);
+            /* the code below avoids the cases (e.g. ticket BOOKKEEPER-313) in which the affected versions are all subsequents to the opening version */
+            if (injVersion.getId() <= ticket.openingVersion.getId()) {
+                ticket.injectedVersion = injVersion;
+                Proportion.computeProportion(ticket);
+            }
         }
 
         return ticket;
@@ -162,7 +172,7 @@ public class TicketRetriever {
     }
 
 
-    public static List<Ticket> getTicketsWithAV(List<Ticket> tickets, List<Release> releases) {
+    public static List<Ticket> getTicketsWithAV(List<Ticket> tickets) {
 
         //List<Ticket> filteredTickets = filterTickets(tickets, releases);
         List<Ticket> ticketsWithAV = new ArrayList<>();
@@ -173,7 +183,7 @@ public class TicketRetriever {
                 ticketsWithAV.add(ticket);
                 continue;
             }
-            if (ticket.fixVersion.getId() != ticket.injectedVersion.getId()) {
+            if (ticket.fixVersion.getId() > ticket.injectedVersion.getId()) {
                 // these tickets have fix version different from the injected version, so they have AV
                 ticketsWithAV.add(ticket);
             }
