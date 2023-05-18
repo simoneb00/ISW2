@@ -103,7 +103,7 @@ public class Weka {
 
         // evaluation
         eval.evaluateModel(naiveBayes, test);
-        return new EvaluationReport(iteration, EvaluationReport.Classifiers.NAIVE_BAYES, projName + " - " + iteration, eval.precision(1), eval.recall(1), eval.areaUnderROC(1), eval.kappa(), featureSelection);
+        return new EvaluationReport(iteration, EvaluationReport.Classifiers.NAIVE_BAYES, projName + " - " + iteration, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), featureSelection);
     }
 
     private EvaluationReport RFClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection) throws Exception {
@@ -114,7 +114,7 @@ public class Weka {
         // evaluation
         System.out.println("Random Forest results: ");
         eval.evaluateModel(randomForest, test);
-        return new EvaluationReport(iteration, EvaluationReport.Classifiers.RANDOM_FOREST, projName + " - " + iteration, eval.precision(1), eval.recall(1), eval.areaUnderROC(1), eval.kappa(), featureSelection);
+        return new EvaluationReport(iteration, EvaluationReport.Classifiers.RANDOM_FOREST, projName + " - " + iteration, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), featureSelection);
 
     }
 
@@ -125,7 +125,7 @@ public class Weka {
         // evaluation
         System.out.println("IBk results: ");
         eval.evaluateModel(iBk, test);
-        return new EvaluationReport(iteration, EvaluationReport.Classifiers.IBK, projName + " - " + iteration, eval.precision(1), eval.recall(1), eval.areaUnderROC(1), eval.kappa(), featureSelection);
+        return new EvaluationReport(iteration, EvaluationReport.Classifiers.IBK, projName + " - " + iteration, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), featureSelection);
     }
 }
 

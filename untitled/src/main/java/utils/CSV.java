@@ -74,17 +74,23 @@ public class CSV {
 
     public static File generateCSVForWF(Type type, List<Class> classes, String projName, int iteration) throws IOException {
         if (type == Type.TRAINING_SET) {
-            File trainFile = new File("/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" + iteration + "_training-set.csv");
+            String filenameCSV = "/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" + iteration + "_training-set.csv";
+            String filenameARFF = "/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" + iteration + "_training-set.arff";
+            File trainFile = new File(filenameCSV);
             trainFile.getParentFile().mkdirs();
             trainFile.createNewFile();
             PopulateFile(classes, trainFile);
+            ARFF.generateARFF(filenameARFF, classes);
             return trainFile;
         }
         else if (type == Type.TESTING_SET) {
-            File testFile = new File("/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" +  iteration + "_testing-set.csv");
+            String filenameCSV = "/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" +  iteration + "_testing-set.csv";
+            String filenameARFF = "/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" +  iteration + "_testing-set.arff";
+            File testFile = new File(filenameCSV);
             testFile.getParentFile().mkdirs();
             testFile.createNewFile();
             PopulateFile(classes, testFile);
+            ARFF.generateARFF(filenameARFF, classes);
             return testFile;
         }
 
@@ -102,7 +108,7 @@ public class CSV {
             bufferedWriter.append("\n");
 
             for (EvaluationReport report : reports) {
-                String row = report.getDataset() + ", "
+                String row = report.getDataset().substring(0, report.getDataset().length() - 3).toLowerCase() + ", "
                         + report.getIteration() + ", "
                         + report.getClassifier().toString().toLowerCase() + ", "
                         + report.getPrecision() + ", "

@@ -38,6 +38,7 @@ public class CommitRetriever {
 
         List<Class> allClasses = new ArrayList<>();
         List<RevCommit> commits = new ArrayList<>();
+        List<Class> filteredClasses = new ArrayList<>();
 
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, false, numVersions, false);
 
@@ -155,10 +156,10 @@ public class CommitRetriever {
                 }
             }
 
-
             System.out.println("All classes: " + allClasses.size());
             System.out.println("Buggy classes: " + count);
             System.out.println(numVersions + ": Versions of the buggy classes: " + versions);
+
 
             ComputeMetrics computeMetrics = new ComputeMetrics();
             computeMetrics.computeMetrics(allClasses, projName);

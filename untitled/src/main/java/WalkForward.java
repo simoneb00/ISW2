@@ -57,11 +57,17 @@ public class WalkForward {
 
             File testFile = CSV.generateCSVForWF(CSV.Type.TESTING_SET, classesForTestSet, projName, i);
 
+            /*
             File trainArff = wekaUtils.CSVToARFF(trainFile);
             File testArff = wekaUtils.CSVToARFF(testFile);
 
             wekaUtils.removeAttribute(trainArff);
             wekaUtils.removeAttribute(testArff);
+
+            wekaUtils.adjustAttributes(trainArff);
+            wekaUtils.adjustAttributes(testArff);
+
+             */
 
                 /*
                 if (i > 1) {
