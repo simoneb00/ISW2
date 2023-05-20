@@ -24,10 +24,8 @@ public class Main {
             List<List<File>> files = WalkForward.initSets("BOOKKEEPER");
             //WalkForward.initSets("STORM");
 
-
             WalkForward.classify("BOOKKEEPER");
 
-            /* TODO: considerare come buggy anche le classi relative ai ticket aperti ma non ancora risolti */
 
         } catch (Exception e) {
             throw new RuntimeException(e);

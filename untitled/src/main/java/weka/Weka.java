@@ -1,7 +1,9 @@
 package weka;
 
 import exceptions.EmptyARFFException;
+import model.Classifier;
 import model.EvaluationReport;
+import weka.attributeSelection.BestFirst;
 import weka.attributeSelection.CfsSubsetEval;
 import weka.attributeSelection.GreedyStepwise;
 import weka.classifiers.Evaluation;
@@ -21,6 +23,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Weka {
+
+    public enum SearchMethods {
+        BACKWARD_SEARCH,
+        FORWARD_SEARCH,
+        BEST_FIRST
+    }
 
     // Random Forest, Naive Bayes, IBk
 
@@ -61,31 +69,40 @@ public class Weka {
 
             Evaluation eval = new Evaluation(trainData);
 
-            reports.add(NBClassification(trainData, testData, eval, iteration, projName, false));
-            reports.add(IBkClassification(trainData, testData, eval, iteration, projName, false));
-            reports.add(RFClassification(trainData, testData, eval, iteration, projName, false));
+            reports.add(NBClassification(trainData, testData, eval, iteration, projName, false, null));
+            reports.add(IBkClassification(trainData, testData, eval, iteration, projName, false, null));
+            reports.add(RFClassification(trainData, testData, eval, iteration, projName, false, null));
 
 
-            // feature selection
+            // feature selection: backward greedyStepwise
 
             weka.filters.supervised.attribute.AttributeSelection filter = new AttributeSelection();
+
+            /*  CFSSubsetEval evaluates the worth of a subset of attributes by considering the individual predictive ability of each feature along with the degree of redundancy between them.
+             *  It selects a subset of attributes highly correlated with the class but with low inter-correlation.
+             */
             CfsSubsetEval cfsSubsetEval = new CfsSubsetEval();
-            GreedyStepwise search = new GreedyStepwise();
-            search.setSearchBackwards(true);
+
+            /* Backward Search */
+            GreedyStepwise greedyStepwise = new GreedyStepwise();
+            greedyStepwise.setSearchBackwards(true);
 
             filter.setEvaluator(cfsSubsetEval);
-            filter.setSearch(search);
+            filter.setSearch(greedyStepwise);
 
-            filter.setInputFormat(trainData);
-            Instances filteredTrainingData = Filter.useFilter(trainData, filter);
-            filteredTrainingData.setClassIndex(filteredTrainingData.numAttributes() - 1);
+            reports.addAll(classificationWithFS(trainData, testData, filter, eval, iteration, projName, SearchMethods.BACKWARD_SEARCH));
 
-            Instances filteredTestingData = Filter.useFilter(testData, filter);
-            filteredTestingData.setClassIndex(filteredTestingData.numAttributes() - 1);
+            // feature selection: forward greedyStepwise
+            greedyStepwise.setConservativeForwardSelection(true);
+            filter.setSearch(greedyStepwise);
 
-            reports.add(NBClassification(filteredTrainingData, filteredTestingData, eval, iteration, projName, true));
-            reports.add(IBkClassification(filteredTrainingData, filteredTestingData, eval, iteration, projName, true));
-            reports.add(RFClassification(filteredTrainingData, filteredTestingData, eval, iteration, projName, true));
+            reports.addAll(classificationWithFS(trainData, testData, filter, eval, iteration, projName, SearchMethods.FORWARD_SEARCH));
+
+            // feature selection: best first
+            BestFirst bestFirst = new BestFirst();
+            filter.setSearch(bestFirst);
+
+            reports.addAll(classificationWithFS(trainData, testData, filter, eval, iteration, projName, SearchMethods.BEST_FIRST));
 
 
         } catch (Exception e) {
@@ -97,16 +114,34 @@ public class Weka {
         return reports;
     }
 
-    private EvaluationReport NBClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection) throws Exception {
+    private List<EvaluationReport> classificationWithFS(Instances train, Instances test, Filter filter ,Evaluation eval, int iteration, String projName, SearchMethods method) throws Exception {
+
+        List<EvaluationReport> reports = new ArrayList<>();
+
+        filter.setInputFormat(train);
+        Instances filteredTrainingData = Filter.useFilter(train, filter);
+        filteredTrainingData.setClassIndex(filteredTrainingData.numAttributes() - 1);
+
+        Instances filteredTestingData = Filter.useFilter(test, filter);
+        filteredTestingData.setClassIndex(filteredTestingData.numAttributes() - 1);
+
+        reports.add(NBClassification(filteredTrainingData, filteredTestingData, eval, iteration, projName, true, method));
+        reports.add(IBkClassification(filteredTrainingData, filteredTestingData, eval, iteration, projName, true, method));
+        reports.add(RFClassification(filteredTrainingData, filteredTestingData, eval, iteration, projName, true, method));
+
+        return reports;
+    }
+
+    private EvaluationReport NBClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection, SearchMethods method) throws Exception {
         NaiveBayes naiveBayes = new NaiveBayes();
         naiveBayes.buildClassifier(train);
 
         // evaluation
         eval.evaluateModel(naiveBayes, test);
-        return new EvaluationReport(iteration, EvaluationReport.Classifiers.NAIVE_BAYES, projName + " - " + iteration, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), featureSelection);
+        return new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName + " - " + iteration, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), featureSelection, method);
     }
 
-    private EvaluationReport RFClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection) throws Exception {
+    private EvaluationReport RFClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection, SearchMethods method) throws Exception {
 
         RandomForest randomForest = new RandomForest();
         randomForest.buildClassifier(train);
@@ -114,18 +149,18 @@ public class Weka {
         // evaluation
         System.out.println("Random Forest results: ");
         eval.evaluateModel(randomForest, test);
-        return new EvaluationReport(iteration, EvaluationReport.Classifiers.RANDOM_FOREST, projName + " - " + iteration, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), featureSelection);
+        return new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName + " - " + iteration, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), featureSelection, method);
 
     }
 
-    private EvaluationReport IBkClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection) throws Exception {
+    private EvaluationReport IBkClassification(Instances train, Instances test, Evaluation eval, int iteration, String projName, boolean featureSelection, SearchMethods method) throws Exception {
         IBk iBk = new IBk();
         iBk.buildClassifier(train);
 
         // evaluation
         System.out.println("IBk results: ");
         eval.evaluateModel(iBk, test);
-        return new EvaluationReport(iteration, EvaluationReport.Classifiers.IBK, projName + " - " + iteration, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), featureSelection);
+        return new EvaluationReport(iteration, Classifier.Type.IBK, projName + " - " + iteration, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), featureSelection, method);
     }
 }
 

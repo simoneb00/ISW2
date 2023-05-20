@@ -1,24 +1,22 @@
 package model;
 
 
+import org.eclipse.jgit.util.FS;
+import weka.Weka;
+
 public class EvaluationReport {
 
-    public enum Classifiers {
-        RANDOM_FOREST,
-        IBK,
-        NAIVE_BAYES
-    }
-
     private int iteration;
-    private Classifiers classifier;
+    private Classifier.Type classifier;
     private String dataset;
     private double precision;
     private double recall;
     private double AUC;
     private double kappa;
     private boolean featureSelection;
+    private Weka.SearchMethods FSSearchMethod;
 
-    public EvaluationReport(int iteration, Classifiers classifier, String dataset, double precision, double recall, double AUC, double kappa, boolean featureSelection) {
+    public EvaluationReport(int iteration, Classifier.Type classifier, String dataset, double precision, double recall, double AUC, double kappa, boolean featureSelection, Weka.SearchMethods FSSearchMethod) {
         this.iteration = iteration;
         this.classifier = classifier;
         this.dataset = dataset;
@@ -27,6 +25,11 @@ public class EvaluationReport {
         this.AUC = AUC;
         this.kappa = kappa;
         this.featureSelection = featureSelection;
+        this.FSSearchMethod = FSSearchMethod;
+    }
+
+    public Weka.SearchMethods getFSSearchMethod() {
+        return FSSearchMethod;
     }
 
     public boolean isFeatureSelection() {
@@ -41,12 +44,8 @@ public class EvaluationReport {
         this.iteration = iteration;
     }
 
-    public Classifiers getClassifier() {
+    public Classifier.Type getClassifier() {
         return classifier;
-    }
-
-    public void setClassifier(Classifiers classifier) {
-        this.classifier = classifier;
     }
 
     public String getDataset() {

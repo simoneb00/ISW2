@@ -34,7 +34,7 @@ public class CommitRetriever {
 
     private static Repository repository;
 
-    public static List<Class> retrieveCommits(String projName, List<Ticket> allTickets, int numVersions) throws IOException, JSONException, GitAPIException {
+    public static List<Class> retrieveCommits(String projName, List<Ticket> allTickets, int numVersions, boolean computeMetrics) throws IOException, JSONException, GitAPIException {
 
         List<Class> allClasses = new ArrayList<>();
         List<RevCommit> commits = new ArrayList<>();
@@ -160,11 +160,8 @@ public class CommitRetriever {
             System.out.println("Buggy classes: " + count);
             System.out.println(numVersions + ": Versions of the buggy classes: " + versions);
 
-
-            ComputeMetrics computeMetrics = new ComputeMetrics();
-            computeMetrics.computeMetrics(allClasses, projName);
-
-            // CSV.generateCSV(allClasses, projName, numVersions);
+            ComputeMetrics cm = new ComputeMetrics();
+            cm.computeMetrics(allClasses, projName);
 
 
         } catch (GitAPIException e) {

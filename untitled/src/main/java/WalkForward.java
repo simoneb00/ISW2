@@ -6,9 +6,11 @@ import model.Ticket;
 import org.codehaus.jettison.json.JSONException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import utils.CSV;
+import utils.EvaluationReportUtils;
 import weka.Weka;
 import weka.WekaUtils;
 
+import java.awt.color.CMMException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,11 +32,16 @@ public class WalkForward {
         List<List<File>> files = new ArrayList<>();
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, false);
         WekaUtils wekaUtils = new WekaUtils();
+        List<Class> allClasses = new ArrayList<>();
 
         // here we retrieve all tickets and classes, in order to create the testing sets for all the iterations
         List<Ticket> allTickets = TicketRetriever.retrieveTickets(projName, releases.size());
-        List<Class> allClasses = CommitRetriever.retrieveCommits(projName, allTickets, releases.size());
-        CSV.generateCSV(allClasses, projName, releases.size());
+        if (!new File(projName + ".csv").exists()) {
+            allClasses = CommitRetriever.retrieveCommits(projName, allTickets, releases.size(), true);
+            CSV.generateCSV(allClasses, projName, releases.size());
+        } else {
+            allClasses = CommitRetriever.retrieveCommits(projName, allTickets, releases.size(), false);
+        }
 
         // we have to create different CSV files: for each iteration, starting just with the first release, we add the next release
         for (int i = 2; i <= Math.round((float) releases.size() / 2); i++) {
@@ -43,10 +50,15 @@ public class WalkForward {
 
             // training set
             System.out.println("\n\nRetrieving tickets for the first " + i + " releases");
-            List<Ticket> ticketsForTrainSet = TicketRetriever.retrieveTickets(projName, i - 1);
-            List<Class> classesForTrainSet = CommitRetriever.retrieveCommits(projName, ticketsForTrainSet, i - 1);
 
-            File trainFile = CSV.generateCSVForWF(CSV.Type.TRAINING_SET, classesForTrainSet, projName, i);
+            String filenameCSV = "/home/simoneb/ISW2/" + projName + "_" + i + "/" + projName + "_" + i + "_training-set.csv";
+
+            if (!new File(filenameCSV).exists()) {
+                List<Ticket> ticketsForTrainSet = TicketRetriever.retrieveTickets(projName, i - 1);
+                List<Class> classesForTrainSet = CommitRetriever.retrieveCommits(projName, ticketsForTrainSet, i - 1, true);
+
+                File trainFile = CSV.generateCSVForWF(CSV.Type.TRAINING_SET, classesForTrainSet, projName, i);
+            }
 
             // testing set
             List<Class> classesForTestSet = new ArrayList<>();
@@ -123,5 +135,50 @@ public class WalkForward {
         }
 
         CSV.generateCSVForReports(reports);
+        getDominantClassifier(reports);
+    }
+
+    private static void getDominantClassifier(List<EvaluationReport> reports) {
+        EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
+        List<EvaluationReport> meanReports = new ArrayList<>();
+
+        List<EvaluationReport> reportsWithoutFS = evaluationReportUtils.getReportsWithoutFS(reports);
+
+        try {
+
+            // evaluating reports with no FS
+            List<List<EvaluationReport>> reportsDividedByClassifierNoFS = evaluationReportUtils.divideReportsByClassifier(reportsWithoutFS);
+
+            for (List<EvaluationReport> list : reportsDividedByClassifierNoFS) {
+                meanReports.add(evaluationReportUtils.getMeanValuesForClassifier(list));
+            }
+
+            // evaluating reports with FS
+            List<EvaluationReport> reportsWithFS = evaluationReportUtils.getReportsWithFS(reports);
+
+            List<List<EvaluationReport>> divReportsWithFS = evaluationReportUtils.divideReportsBySearchMethod(reportsWithFS);
+            for (List<EvaluationReport> list : divReportsWithFS) {
+                List<List<EvaluationReport>> reportsDividedByClassifierFS = evaluationReportUtils.divideReportsByClassifier(list);
+                for (List<EvaluationReport> listDivByClassifier : reportsDividedByClassifierFS) {
+                    meanReports.add(evaluationReportUtils.getMeanValuesForClassifier(listDivByClassifier));
+                }
+            }
+
+            for (EvaluationReport report : meanReports) {
+                if (report.isFeatureSelection())
+                    System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " with FS search method " + report.getFSSearchMethod().toString().toLowerCase());
+                else
+                    System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " without feature selection");
+
+                System.out.println("Mean precision = " + report.getPrecision());
+                System.out.println("Mean recall = " + report.getRecall());
+                System.out.println("Mean AUC = " + report.getAUC());
+                System.out.println("Mean kappa = " + report.getKappa());
+            }
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
