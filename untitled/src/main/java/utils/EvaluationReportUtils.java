@@ -81,6 +81,35 @@ public class EvaluationReportUtils {
         return list;
     }
 
+    public List<List<EvaluationReport>> divideReportsBySamplingMethod(List<EvaluationReport> reports) throws Exception {
+        List<List<EvaluationReport>> list = new ArrayList<>();
+        List<EvaluationReport> undersamplingReports = new ArrayList<>();
+        List<EvaluationReport> oversamplingReports = new ArrayList<>();
+
+        for (EvaluationReport report : reports) {
+            if (report.getSamplingMethod() == Weka.SamplingMethod.UNDERSAMPLING)
+                undersamplingReports.add(report);
+            else if (report.getSamplingMethod() == Weka.SamplingMethod.OVERSAMPLING)
+                oversamplingReports.add(report);
+            else if (report.getSamplingMethod() != null)
+                throw new Exception("divideReportsBySamplingMethod: Unexpected sampling method");
+        }
+
+        list.add(undersamplingReports);
+        list.add(oversamplingReports);
+
+        return list;
+    }
+
+    public List<EvaluationReport> getReportsWithSampling(List<EvaluationReport> reports) {
+        List<EvaluationReport> list = new ArrayList<>();
+        for (EvaluationReport report : reports) {
+            if (report.getSamplingMethod() != null)
+                list.add(report);
+        }
+        return list;
+    }
+
     /*
      *  this method, given a list of reports regarding the same classifier on different iterations, computes the mean precision, recall, AUC and kappa
      */
@@ -102,6 +131,6 @@ public class EvaluationReportUtils {
         meanAUC = meanAUC / reports.size();
         meanKappaValue = meanKappaValue / reports.size();
 
-        return new EvaluationReport(0, reports.get(0).getClassifier(), reports.get(0).getDataset(), meanPrecision, meanRecall, meanAUC, meanKappaValue, reports.get(0).isFeatureSelection(), reports.get(0).getFSSearchMethod());
+        return new EvaluationReport(0, reports.get(0).getClassifier(), reports.get(0).getDataset(), meanPrecision, meanRecall, meanAUC, meanKappaValue, reports.get(0).isFeatureSelection(), reports.get(0).getFSSearchMethod(), reports.get(0).getSamplingMethod());
     }
 }

@@ -119,7 +119,6 @@ public class WalkForward {
     public static void classify(String projName) throws JSONException, IOException {
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, true);
         Weka weka = new Weka();
-        List<EvaluationReport> reports = new ArrayList<>();
 
         for (int i = 2; i <= releases.size(); i++) {
 
@@ -127,15 +126,14 @@ public class WalkForward {
             String testSetPath = "/home/simoneb/ISW2/" + projName + "_" + i + "/" + projName + "_" + i + "_testing-set.arff";
 
             try {
-                reports.addAll(weka.classify(trainSetPath, testSetPath, i, projName));
+                weka.classify(trainSetPath, testSetPath, i, projName);
             } catch (EmptyARFFException e) {
                 System.out.println("empty arff");
                 // ignore, empty ARFF file
             }
         }
 
-        CSV.generateCSVForReports(reports);
-        getDominantClassifier(reports);
+        weka.generateFiles();
     }
 
     private static void getDominantClassifier(List<EvaluationReport> reports) {
@@ -164,9 +162,21 @@ public class WalkForward {
                 }
             }
 
+            // evaluating reports with FS and sampling
+            List<EvaluationReport> reportsWithSampling = evaluationReportUtils.getReportsWithSampling(reports);
+            List<List<EvaluationReport>> reportsDividedByClassifierSampling = evaluationReportUtils.divideReportsByClassifier(reportsWithSampling);
+            for (List<EvaluationReport> list : reportsDividedByClassifierSampling) {
+                meanReports.add(evaluationReportUtils.getMeanValuesForClassifier(list));
+            }
+
             for (EvaluationReport report : meanReports) {
-                if (report.isFeatureSelection())
-                    System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " with FS search method " + report.getFSSearchMethod().toString().toLowerCase());
+                if (report.isFeatureSelection()) {
+                    if (report.getSamplingMethod() == null)
+                        System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " with FS search method " + report.getFSSearchMethod().toString().toLowerCase());
+                    else
+                        System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " with FS search method " + report.getFSSearchMethod().toString().toLowerCase() + "and with " + report.getSamplingMethod().toString().toLowerCase());
+
+                }
                 else
                     System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " without feature selection");
 

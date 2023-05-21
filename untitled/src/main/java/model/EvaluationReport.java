@@ -15,8 +15,9 @@ public class EvaluationReport {
     private double kappa;
     private boolean featureSelection;
     private Weka.SearchMethods FSSearchMethod;
+    private Weka.SamplingMethod samplingMethod;
 
-    public EvaluationReport(int iteration, Classifier.Type classifier, String dataset, double precision, double recall, double AUC, double kappa, boolean featureSelection, Weka.SearchMethods FSSearchMethod) {
+    public EvaluationReport(int iteration, Classifier.Type classifier, String dataset, double precision, double recall, double AUC, double kappa, boolean featureSelection, Weka.SearchMethods FSSearchMethod, Weka.SamplingMethod samplingMethod) {
         this.iteration = iteration;
         this.classifier = classifier;
         this.dataset = dataset;
@@ -26,6 +27,11 @@ public class EvaluationReport {
         this.kappa = kappa;
         this.featureSelection = featureSelection;
         this.FSSearchMethod = FSSearchMethod;
+        this.samplingMethod = samplingMethod;
+    }
+
+    public Weka.SamplingMethod getSamplingMethod() {
+        return samplingMethod;
     }
 
     public Weka.SearchMethods getFSSearchMethod() {

@@ -97,7 +97,7 @@ public class CSV {
         return null;
     }
 
-    public static void generateCSVForReports(List<EvaluationReport> reports) {
+    public static void generateCSVForReportsWithoutFS(List<EvaluationReport> reports) {
         FileWriter fileWriterNoFS = null;
         EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
 
@@ -105,13 +105,6 @@ public class CSV {
             fileWriterNoFS = new FileWriter(new File(reports.get(0).getDataset() + "-report-withoutFS.csv"));
             fileWriterNoFS.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa");
             fileWriterNoFS.append("\n");
-
-            List<EvaluationReport> reportsWithFS = evaluationReportUtils.getReportsWithFS(reports);
-            List<List<EvaluationReport>> partitionedReports = evaluationReportUtils.divideReportsBySearchMethod(reportsWithFS);
-
-            for (List<EvaluationReport> reportsList : partitionedReports) {
-                generateCSVForReportsWithFS(reportsList);
-            }
 
             for (EvaluationReport report : reports) {
                 if (!report.isFeatureSelection()) {
@@ -145,28 +138,80 @@ public class CSV {
 
     }
 
-    private static void generateCSVForReportsWithFS(List<EvaluationReport> reports) {
+    public static void generateCSVForReportsWithFS(List<EvaluationReport> reports) {
         FileWriter fileWriter = null;
 
         try {
-            fileWriter = new FileWriter(new File(reports.get(0).getDataset() + "-report-withFS-" + reports.get(0).getFSSearchMethod().toString().toLowerCase() + ".csv"));
+            EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
+            List<List<EvaluationReport>> dividedReports = evaluationReportUtils.divideReportsBySearchMethod(reports);
 
-            fileWriter.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa, Search Method").append("\n");
+            for (List<EvaluationReport> list : dividedReports) {
 
-            for (EvaluationReport report : reports) {
-                fileWriter.append(report.getDataset().substring(0, report.getDataset().length() - 3).toLowerCase())
-                        .append(", ").append(String.valueOf(report.getIteration()))
-                        .append(", ").append(report.getClassifier().toString().toLowerCase())
-                        .append(", ").append(String.valueOf(report.getPrecision()))
-                        .append(", ").append(String.valueOf(report.getRecall()))
-                        .append(", ").append(String.valueOf(report.getAUC()))
-                        .append(", ").append(String.valueOf(report.getKappa()))
-                        .append(", ").append(String.valueOf(report.getFSSearchMethod()))
-                        .append("\n");
+                if (fileWriter != null)
+                    fileWriter.flush();
+                fileWriter = new FileWriter(list.get(0).getDataset() + "-report-withFS-" + list.get(0).getFSSearchMethod().toString().toLowerCase() + ".csv");
+
+                fileWriter.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa, Search Method").append("\n");
+
+                for (EvaluationReport report : list) {
+                    fileWriter.append(report.getDataset() + ", "
+                            + report.getIteration() + ", "
+                            + report.getClassifier().toString().toLowerCase() + ", "
+                            + report.getPrecision() + ", "
+                            + report.getRecall() + ", "
+                            + report.getAUC() + ", "
+                            + report.getKappa() + ", "
+                            + report.getFSSearchMethod() + "\n");
+                }
             }
 
         } catch (IOException e) {
             throw new RuntimeException(e);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                fileWriter.flush();
+                fileWriter.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void generateCSVForReportsWithSampling(List<EvaluationReport> reports) {
+
+        FileWriter fileWriter = null;
+
+        try {
+            EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
+            List<List<EvaluationReport>> reportsWithSampling = evaluationReportUtils.divideReportsBySamplingMethod(reports);
+
+            for (List<EvaluationReport> list : reportsWithSampling) {
+
+                if (fileWriter != null)
+                    fileWriter.flush();
+
+                fileWriter = new FileWriter(list.get(0).getDataset() + "-report-withFS-best_first-with-" + list.get(0).getSamplingMethod().toString().toLowerCase() + ".csv");
+
+                fileWriter.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa, Search Method, Sampling Method").append("\n");
+
+
+                for (EvaluationReport report : list) {
+                    fileWriter.append(report.getDataset().substring(0, report.getDataset().length() - 3).toLowerCase())
+                            .append(", ").append(String.valueOf(report.getIteration()))
+                            .append(", ").append(report.getClassifier().toString().toLowerCase())
+                            .append(", ").append(String.valueOf(report.getPrecision()))
+                            .append(", ").append(String.valueOf(report.getRecall()))
+                            .append(", ").append(String.valueOf(report.getAUC()))
+                            .append(", ").append(String.valueOf(report.getKappa()))
+                            .append(", ").append(String.valueOf(report.getFSSearchMethod()))
+                            .append(", ").append(String.valueOf(report.getSamplingMethod()))
+                            .append("\n");
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             try {
                 fileWriter.flush();

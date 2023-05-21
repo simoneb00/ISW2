@@ -2,9 +2,7 @@ package utils;
 
 import model.Class;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.List;
 
 public class ARFF {
@@ -66,5 +64,39 @@ public class ARFF {
                 e.printStackTrace();
             }
         }
+    }
+
+    public int countNumOccurrences(File arff, String word) {
+        String line;
+        int count = 0;
+        FileReader fileReader = null;
+        BufferedReader bufferedReader = null;
+
+        try {
+            fileReader = new FileReader(arff);
+            bufferedReader = new BufferedReader(fileReader);
+
+            while ((line = bufferedReader.readLine()) != null) {
+                String words[] = line.split(",");
+                for (String w : words) {
+                    if (w.equals(word))
+                        count++;
+                }
+            }
+
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                fileReader.close();
+                bufferedReader.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return count;
     }
 }
