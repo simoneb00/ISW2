@@ -222,6 +222,40 @@ public class CSV {
         }
     }
 
+    public static void generateCSVForReportsWithCSC(List<EvaluationReport> reports) {
+        FileWriter fileWriter = null;
+
+        try {
+
+            fileWriter = new FileWriter(reports.get(0).getDataset() + "-report-with-CSC.csv");
+
+            fileWriter.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa, Search Method").append("\n");
+
+
+            for (EvaluationReport report : reports) {
+                fileWriter.append(report.getDataset().substring(0, report.getDataset().length() - 3).toLowerCase())
+                        .append(", ").append(String.valueOf(report.getIteration()))
+                        .append(", ").append(report.getClassifier().toString().toLowerCase())
+                        .append(", ").append(String.valueOf(report.getPrecision()))
+                        .append(", ").append(String.valueOf(report.getRecall()))
+                        .append(", ").append(String.valueOf(report.getAUC()))
+                        .append(", ").append(String.valueOf(report.getKappa()))
+                        .append(", ").append(String.valueOf(report.getFSSearchMethod()))
+                        .append("\n");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                fileWriter.flush();
+                fileWriter.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
 
     public static void generateCSVForVersions(List<Release> releases, String projName) {
         FileWriter fileWriter = null;

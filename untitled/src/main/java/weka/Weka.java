@@ -1,18 +1,17 @@
 package weka;
 
-import com.sun.xml.bind.v2.runtime.unmarshaller.IntArrayData;
 import exceptions.EmptyARFFException;
 import model.Classifier;
 import model.EvaluationReport;
-import org.eclipse.jgit.util.FS;
 import utils.ARFF;
 import utils.CSV;
 import weka.attributeSelection.BestFirst;
 import weka.attributeSelection.CfsSubsetEval;
-import weka.attributeSelection.GreedyStepwise;
+import weka.classifiers.CostMatrix;
 import weka.classifiers.Evaluation;
 import weka.classifiers.bayes.NaiveBayes;
 import weka.classifiers.lazy.IBk;
+import weka.classifiers.meta.CostSensitiveClassifier;
 import weka.classifiers.meta.FilteredClassifier;
 import weka.classifiers.trees.RandomForest;
 import weka.core.Instances;
@@ -34,7 +33,7 @@ public class Weka {
     public enum SearchMethods {
         BACKWARD_SEARCH,
         FORWARD_SEARCH,
-        BEST_FIRST
+        BIDIRECTIONAL_SEARCH
     }
 
     public enum SamplingMethod {
@@ -45,6 +44,7 @@ public class Weka {
     private final List<EvaluationReport> reportsWithoutFS = new ArrayList<>();
     private final List<EvaluationReport> reportsWithFS = new ArrayList<>();
     private final List<EvaluationReport> reportsWithSampling = new ArrayList<>();
+    private final List<EvaluationReport> reportsWithCSC = new ArrayList<>();
 
     /*
      *  Classifiers: Naive Bayes, Random Forest, IBk
@@ -78,6 +78,8 @@ public class Weka {
 
         try {
 
+            System.out.println("Iteration " + iteration);
+
             /* NO FILTER */
 
             DataSource trainSource = new DataSource(ARFFTrainingSet);
@@ -94,17 +96,26 @@ public class Weka {
             NaiveBayes nb = new NaiveBayes();
             nb.buildClassifier(trainData);
             eval.evaluateModel(nb, testData);
-            reportsWithoutFS.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), false, null, null));
+
+            System.out.println(eval.toMatrixString("Confusion matrix (NB)"));
+
+            reportsWithoutFS.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), false, null, null, false));
 
             RandomForest rf = new RandomForest();
             rf.buildClassifier(trainData);
             eval.evaluateModel(rf, testData);
-            reportsWithoutFS.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), false, null, null));
+
+            System.out.println(eval.toMatrixString("Confusion matrix (RF)"));
+
+            reportsWithoutFS.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), false, null, null, false));
 
             IBk iBk = new IBk();
             iBk.buildClassifier(trainData);
             eval.evaluateModel(iBk, testData);
-            reportsWithoutFS.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), false, null, null));
+
+            System.out.println(eval.toMatrixString("Confusion matrix (IBk)"));
+
+            reportsWithoutFS.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), false, null, null, false));
 
 
 
@@ -117,11 +128,11 @@ public class Weka {
             CfsSubsetEval cfsSubsetEval = new CfsSubsetEval();
 
             /* Backward Search */
-            GreedyStepwise greedyStepwise = new GreedyStepwise();
-            greedyStepwise.setSearchBackwards(true);
+            BestFirst bf = new BestFirst();     // -D <0 = backward | 1 = forward | 2 = bi-directional>
+            bf.setOptions(new String[] {"-D", "0"});
 
             filter.setEvaluator(cfsSubsetEval);
-            filter.setSearch(greedyStepwise);
+            filter.setSearch(bf);
             filter.setInputFormat(trainData);
 
             Instances filteredTrainingData = Filter.useFilter(trainData, filter);
@@ -129,26 +140,29 @@ public class Weka {
             Instances filteredTestingData = Filter.useFilter(testData, filter);
             filteredTestingData.setClassIndex(filteredTestingData.numAttributes() - 1);
 
+
+            eval = new Evaluation(filteredTrainingData);
+
             nb = new NaiveBayes();
             nb.buildClassifier(filteredTrainingData);
             eval.evaluateModel(nb, filteredTestingData);
-            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BACKWARD_SEARCH, null));
+            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BACKWARD_SEARCH, null, false));
 
             rf = new RandomForest();
             rf.buildClassifier(filteredTrainingData);
             eval.evaluateModel(rf, filteredTestingData);
-            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BACKWARD_SEARCH, null));
+            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BACKWARD_SEARCH, null, false));
 
             iBk = new IBk();
             iBk.buildClassifier(filteredTrainingData);
             eval.evaluateModel(iBk, filteredTestingData);
-            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BACKWARD_SEARCH, null));
+            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BACKWARD_SEARCH, null, false));
 
 
             /* Forward Search */
-            greedyStepwise.setSearchBackwards(false);
-            greedyStepwise.setConservativeForwardSelection(true);
-            filter.setSearch(greedyStepwise);
+            bf.setOptions(new String[] {"-D", "1"});
+
+            filter.setSearch(bf);
 
             filteredTrainingData = Filter.useFilter(trainData, filter);
             filteredTrainingData.setClassIndex(filteredTrainingData.numAttributes() - 1);
@@ -156,25 +170,27 @@ public class Weka {
             filteredTestingData = Filter.useFilter(testData, filter);
             filteredTestingData.setClassIndex(filteredTestingData.numAttributes() - 1);
 
+            eval = new Evaluation(filteredTrainingData);
+
             nb = new NaiveBayes();
             nb.buildClassifier(filteredTrainingData);
             eval.evaluateModel(nb, filteredTestingData);
-            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.FORWARD_SEARCH, null));
+            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.FORWARD_SEARCH, null, false));
 
             rf = new RandomForest();
             rf.buildClassifier(filteredTrainingData);
             eval.evaluateModel(rf, filteredTestingData);
-            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.FORWARD_SEARCH, null));
+            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.FORWARD_SEARCH, null, false));
 
             iBk = new IBk();
             iBk.buildClassifier(filteredTrainingData);
             eval.evaluateModel(iBk, filteredTestingData);
-            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.FORWARD_SEARCH, null));
+            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.FORWARD_SEARCH, null, false));
 
 
             /* Best First */
-            BestFirst bestFirst = new BestFirst();
-            filter.setSearch(bestFirst);
+            bf.setOptions(new String[] {"-D", "2"});
+            filter.setSearch(bf);
 
             filteredTrainingData = Filter.useFilter(trainData, filter);
             filteredTrainingData.setClassIndex(filteredTrainingData.numAttributes() - 1);
@@ -182,23 +198,25 @@ public class Weka {
             filteredTestingData = Filter.useFilter(testData, filter);
             filteredTestingData.setClassIndex(filteredTestingData.numAttributes() - 1);
 
+            eval = new Evaluation(filteredTrainingData);
+
             nb = new NaiveBayes();
             nb.buildClassifier(filteredTrainingData);
             eval.evaluateModel(nb, filteredTestingData);
-            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BEST_FIRST, null));
+            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BIDIRECTIONAL_SEARCH, null, false));
 
             rf = new RandomForest();
             rf.buildClassifier(filteredTrainingData);
             eval.evaluateModel(rf, filteredTestingData);
-            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BEST_FIRST, null));
+            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BIDIRECTIONAL_SEARCH, null, false));
 
             iBk = new IBk();
             iBk.buildClassifier(filteredTrainingData);
             eval.evaluateModel(iBk, filteredTestingData);
-            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BEST_FIRST, null));
+            reportsWithFS.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BIDIRECTIONAL_SEARCH, null, false));
 
 
-            /* SAMPLING (+ Best First Feature Selection) */
+            /* SAMPLING (with Best First bidirectional FS) */
 
             /* Undersampling */
             Filter samplingFilter = new SpreadSubsample();
@@ -209,23 +227,25 @@ public class Weka {
             FilteredClassifier filteredClassifier = new FilteredClassifier();
             filteredClassifier.setFilter(samplingFilter);
 
+            eval = new Evaluation(filteredTrainingData);
+
             nb = new NaiveBayes();
             filteredClassifier.setClassifier(nb);
-            filteredClassifier.buildClassifier(trainData);
-            eval.evaluateModel(filteredClassifier, testData);
-            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BEST_FIRST, SamplingMethod.UNDERSAMPLING));
+            filteredClassifier.buildClassifier(filteredTrainingData);
+            eval.evaluateModel(filteredClassifier, filteredTestingData);
+            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BIDIRECTIONAL_SEARCH, SamplingMethod.UNDERSAMPLING, false));
 
             rf = new RandomForest();
             filteredClassifier.setClassifier(rf);
-            filteredClassifier.buildClassifier(trainData);
-            eval.evaluateModel(filteredClassifier, testData);
-            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BEST_FIRST, SamplingMethod.UNDERSAMPLING));
+            filteredClassifier.buildClassifier(filteredTrainingData);
+            eval.evaluateModel(filteredClassifier, filteredTestingData);
+            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BIDIRECTIONAL_SEARCH, SamplingMethod.UNDERSAMPLING, false));
 
             iBk = new IBk();
             filteredClassifier.setClassifier(iBk);
-            filteredClassifier.buildClassifier(trainData);
-            eval.evaluateModel(filteredClassifier, testData);
-            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BEST_FIRST, SamplingMethod.UNDERSAMPLING));
+            filteredClassifier.buildClassifier(filteredTrainingData);
+            eval.evaluateModel(filteredClassifier, filteredTestingData);
+            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BIDIRECTIONAL_SEARCH, SamplingMethod.UNDERSAMPLING, false));
 
             /* Oversampling */
             samplingFilter = new Resample();
@@ -234,7 +254,6 @@ public class Weka {
             int countTrue = arff.countNumOccurrences(trainFile, "true");
             int countFalse = arff.countNumOccurrences(trainFile, "false");
 
-            System.out.println(projName + " - " + iteration + ": " + "num of true = " + countTrue + ", num of false = " + countFalse);
 
             double percentage;
             if (countTrue < countFalse)
@@ -252,21 +271,112 @@ public class Weka {
 
             filteredClassifier.setFilter(samplingFilter);
 
+            eval = new Evaluation(filteredTrainingData);
+
             filteredClassifier.setClassifier(nb);
-            filteredClassifier.buildClassifier(trainData);
-            eval.evaluateModel(filteredClassifier, testData);
-            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BEST_FIRST, SamplingMethod.OVERSAMPLING));
+            filteredClassifier.buildClassifier(filteredTrainingData);
+            eval.evaluateModel(filteredClassifier, filteredTestingData);
+            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.NAIVE_BAYES, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BIDIRECTIONAL_SEARCH, SamplingMethod.OVERSAMPLING, false));
 
             filteredClassifier.setClassifier(rf);
-            filteredClassifier.buildClassifier(trainData);
-            eval.evaluateModel(filteredClassifier, testData);
-            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BEST_FIRST, SamplingMethod.OVERSAMPLING));
+            filteredClassifier.buildClassifier(filteredTrainingData);
+            eval.evaluateModel(filteredClassifier, filteredTestingData);
+            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.RANDOM_FOREST, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BIDIRECTIONAL_SEARCH, SamplingMethod.OVERSAMPLING, false));
 
             filteredClassifier.setClassifier(iBk);
-            filteredClassifier.buildClassifier(trainData);
-            eval.evaluateModel(filteredClassifier, testData);
-            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BEST_FIRST, SamplingMethod.OVERSAMPLING));
+            filteredClassifier.buildClassifier(filteredTrainingData);
+            eval.evaluateModel(filteredClassifier, filteredTestingData);
+            reportsWithSampling.add(new EvaluationReport(iteration, Classifier.Type.IBK, projName, eval.precision(0), eval.recall(0), eval.areaUnderROC(0), eval.kappa(), true, SearchMethods.BIDIRECTIONAL_SEARCH, SamplingMethod.OVERSAMPLING, false));
 
+            /* COST SENSITIVE CLASSIFIER (with Best First Bidirectional FS) */
+
+            /*
+             *         cost matrix:  [0 10]
+             *                       [1  0]
+             *
+             *  i.e., a FN costs 10 times a FP, so a FN is considered a worse error,
+             *  because we prefer having a non-buggy class wrongly classified as buggy (FP),
+             *  than a buggy class wrongly classified as non-buggy (FN).
+             *  In this case we have an accepting threshold of 0.09: it means that most of the classes will be accepted (marked as buggy), so we expect a low number of FNs.
+             *
+             */
+            CostMatrix costMatrix = new CostMatrix(2);
+            costMatrix.setCell(0, 0, 0.0);
+            costMatrix.setCell(0, 1, 10.0);
+            costMatrix.setCell(1, 0, 1.0);
+            costMatrix.setCell(1, 1, 0.0);
+
+            CostSensitiveClassifier costSensitiveClassifier = new CostSensitiveClassifier();
+
+            eval = new Evaluation(filteredTrainingData);
+
+            nb = new NaiveBayes();
+            costSensitiveClassifier.setCostMatrix(costMatrix);
+            costSensitiveClassifier.setClassifier(nb);
+            costSensitiveClassifier.buildClassifier(filteredTrainingData);
+            eval.evaluateModel(costSensitiveClassifier, filteredTestingData);
+
+            System.out.println(eval.toMatrixString("Confusion matrix (Naive Bayes)"));
+
+            reportsWithCSC.add(new EvaluationReport(
+                    iteration,
+                    Classifier.Type.NAIVE_BAYES,
+                    projName,
+                    eval.precision(0),
+                    eval.recall(0),
+                    eval.areaUnderROC(0),
+                    eval.kappa(),
+                    true,
+                    SearchMethods.BIDIRECTIONAL_SEARCH,
+                    null,
+                    true
+            ));
+
+            rf = new RandomForest();
+            costSensitiveClassifier.setCostMatrix(costMatrix);
+            costSensitiveClassifier.setClassifier(rf);
+            costSensitiveClassifier.buildClassifier(filteredTrainingData);
+            eval.evaluateModel(costSensitiveClassifier, filteredTestingData);
+
+            System.out.println(eval.toMatrixString("Confusion matrix (Random Forest)"));
+
+            reportsWithCSC.add(new EvaluationReport(
+                    iteration,
+                    Classifier.Type.RANDOM_FOREST,
+                    projName,
+                    eval.precision(0),
+                    eval.recall(0),
+                    eval.areaUnderROC(0),
+                    eval.kappa(),
+                    true,
+                    SearchMethods.BIDIRECTIONAL_SEARCH,
+                    null,
+                    true
+            ));
+
+            iBk = new IBk();
+            costSensitiveClassifier.setCostMatrix(costMatrix);
+            costSensitiveClassifier.setClassifier(iBk);
+            costSensitiveClassifier.buildClassifier(filteredTrainingData);
+            eval.evaluateModel(costSensitiveClassifier, filteredTestingData);
+
+            System.out.println(eval.toMatrixString("Confusion matrix (IBk)"));
+
+            reportsWithCSC.add(new EvaluationReport(
+                    iteration,
+                    Classifier.Type.IBK,
+                    projName,
+                    eval.precision(0),
+                    eval.recall(0),
+                    eval.areaUnderROC(0),
+                    eval.kappa(),
+                    true,
+                    SearchMethods.BIDIRECTIONAL_SEARCH,
+                    null,
+                    true
+            ));
+
+            System.out.println("\n");
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -280,6 +390,7 @@ public class Weka {
         CSV.generateCSVForReportsWithoutFS(reportsWithoutFS);
         CSV.generateCSVForReportsWithFS(reportsWithFS);
         CSV.generateCSVForReportsWithSampling(reportsWithSampling);
+        CSV.generateCSVForReportsWithCSC(reportsWithCSC);
     }
 
     /*

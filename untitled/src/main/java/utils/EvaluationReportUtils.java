@@ -4,7 +4,6 @@ import model.Classifier;
 import model.EvaluationReport;
 import weka.Weka;
 
-import javax.swing.border.EmptyBorder;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,7 +21,7 @@ public class EvaluationReportUtils {
                 reportsBS.add(report);
             else if (report.getFSSearchMethod() == Weka.SearchMethods.FORWARD_SEARCH)
                 reportsFS.add(report);
-            else if (report.getFSSearchMethod() == Weka.SearchMethods.BEST_FIRST)
+            else if (report.getFSSearchMethod() == Weka.SearchMethods.BIDIRECTIONAL_SEARCH)
                 reportsBF.add(report);
             else
                 throw new Exception("divideReportsBySearchMethod: Unexpected search method");
@@ -131,6 +130,6 @@ public class EvaluationReportUtils {
         meanAUC = meanAUC / reports.size();
         meanKappaValue = meanKappaValue / reports.size();
 
-        return new EvaluationReport(0, reports.get(0).getClassifier(), reports.get(0).getDataset(), meanPrecision, meanRecall, meanAUC, meanKappaValue, reports.get(0).isFeatureSelection(), reports.get(0).getFSSearchMethod(), reports.get(0).getSamplingMethod());
+        return new EvaluationReport(0, reports.get(0).getClassifier(), reports.get(0).getDataset(), meanPrecision, meanRecall, meanAUC, meanKappaValue, reports.get(0).isFeatureSelection(), reports.get(0).getFSSearchMethod(), reports.get(0).getSamplingMethod(), false);
     }
 }

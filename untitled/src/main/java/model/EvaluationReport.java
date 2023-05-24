@@ -16,8 +16,9 @@ public class EvaluationReport {
     private boolean featureSelection;
     private Weka.SearchMethods FSSearchMethod;
     private Weka.SamplingMethod samplingMethod;
+    private boolean costSensitiveClassification;
 
-    public EvaluationReport(int iteration, Classifier.Type classifier, String dataset, double precision, double recall, double AUC, double kappa, boolean featureSelection, Weka.SearchMethods FSSearchMethod, Weka.SamplingMethod samplingMethod) {
+    public EvaluationReport(int iteration, Classifier.Type classifier, String dataset, double precision, double recall, double AUC, double kappa, boolean featureSelection, Weka.SearchMethods FSSearchMethod, Weka.SamplingMethod samplingMethod, boolean costSensitiveClassification) {
         this.iteration = iteration;
         this.classifier = classifier;
         this.dataset = dataset;
@@ -28,7 +29,10 @@ public class EvaluationReport {
         this.featureSelection = featureSelection;
         this.FSSearchMethod = FSSearchMethod;
         this.samplingMethod = samplingMethod;
+        this.costSensitiveClassification = costSensitiveClassification;
     }
+
+    public boolean isCostSensitiveClassification() { return costSensitiveClassification;}
 
     public Weka.SamplingMethod getSamplingMethod() {
         return samplingMethod;
