@@ -1,11 +1,4 @@
-import model.Ticket;
-import org.codehaus.jettison.json.JSONException;
-import org.eclipse.jgit.api.errors.GitAPIException;
-import weka.Weka;
-
 import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 public class Main {
@@ -21,10 +14,10 @@ public class Main {
 
          */
 
-            List<List<File>> files = WalkForward.initSets("BOOKKEEPER");
+            List<List<File>> files = WalkForward.initSets("STORM");
             //WalkForward.initSets("STORM");
 
-            WalkForward.classify("BOOKKEEPER");
+            WalkForward.classify("STORM");
 
 
         } catch (Exception e) {

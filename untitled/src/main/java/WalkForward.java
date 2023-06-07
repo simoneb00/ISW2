@@ -10,11 +10,9 @@ import utils.EvaluationReportUtils;
 import weka.Weka;
 import weka.WekaUtils;
 
-import java.awt.color.CMMException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class WalkForward {
