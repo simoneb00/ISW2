@@ -11,5 +11,9 @@
     <orderEntry type="library" name="json" level="project" />
     <orderEntry type="library" name="eclipse.jgit" level="project" />
     <orderEntry type="library" name="opencsv" level="project" />
+    <orderEntry type="library" name="nz.ac.waikato.cms.weka.stable" level="project" />
+    <orderEntry type="library" name="nz.ac.waikato.cms.weka.stable1" level="project" />
+    <orderEntry type="library" name="opencsv1" level="project" />
+    <orderEntry type="library" name="eclipse.jgit1" level="project" />
   </component>
 </module>

@@ -13,7 +13,7 @@ public class CommitUtils {
 
         for (RevCommit commit : allCommits) {
             String fullMessage = commit.getFullMessage();
-            if ((fullMessage.contains(ticket.key + ":") || fullMessage.contains(ticket.key + "]") || fullMessage.contains(ticket.key + " ") || fullMessage.contains("/" + ticket.key)) && !assCommits.contains(commit))
+            if ((fullMessage.contains(ticket.getKey() + ":") || fullMessage.contains(ticket.getKey() + "]") || fullMessage.contains(ticket.getKey() + " ") || fullMessage.contains("/" + ticket.getKey())) && !assCommits.contains(commit))
                 assCommits.add(commit);
         }
 

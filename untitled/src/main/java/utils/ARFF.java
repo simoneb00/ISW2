@@ -38,10 +38,10 @@ public class ARFF {
             for (Class c : classes) {
                 fileWriter.append(
                         c.getSize() + "," +
-                        c.getNAuth() + "," +
+                        c.getnAuth() + "," +
                         c.getFanOut() + "," +
-                        c.getNR() + "," +
-                        c.getLOCAdded() + "," +
+                        c.getnR() + "," +
+                        c.getLocAdded() + "," +
                         c.getMaxLOCAdded() + "," +
                         c.getAverageLOCAdded() + "," +
                         c.getChurn() + "," +

@@ -1,14 +1,18 @@
+package weka;
+
 import exceptions.EmptyARFFException;
+import exceptions.ExecutionException;
 import model.Class;
-import model.EvaluationReport;
 import model.Release;
 import model.Ticket;
 import org.codehaus.jettison.json.JSONException;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import retrievers.CommitRetriever;
+import retrievers.GetReleaseInfo;
+import retrievers.TicketRetriever;
 import utils.CSV;
-import utils.EvaluationReportUtils;
-import weka.Weka;
-import weka.WekaUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class WalkForward {
+
+    private static final Logger logger = LoggerFactory.getLogger(WalkForward.class);
 
     /*
      *  Walk-Forward: for each iteration i = 1, ..., n-1 (if the releases are n), we have a different dataset:
@@ -26,19 +32,18 @@ public class WalkForward {
      *  Instead, in order to create the testing set, we can use all the available data (ASSUMPTION).
      *
      */
-    public static List<List<File>> initSets(String projName) throws JSONException, IOException, GitAPIException {
+    public static List<List<File>> initSets(String projName) throws JSONException, IOException, GitAPIException, ExecutionException {
         List<List<File>> files = new ArrayList<>();
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, false);
-        WekaUtils wekaUtils = new WekaUtils();
-        List<Class> allClasses = new ArrayList<>();
+        List<Class> allClasses;
 
         // here we retrieve all tickets and classes, in order to create the testing sets for all the iterations
         List<Ticket> allTickets = TicketRetriever.retrieveTickets(projName, releases.size());
         if (!new File(projName + ".csv").exists()) {
-            allClasses = CommitRetriever.retrieveCommits(projName, allTickets, releases.size(), true);
+            allClasses = CommitRetriever.retrieveCommits(projName, allTickets, releases.size());
             CSV.generateCSV(allClasses, projName, releases.size());
         } else {
-            allClasses = CommitRetriever.retrieveCommits(projName, allTickets, releases.size(), false);
+            allClasses = CommitRetriever.retrieveCommits(projName, allTickets, releases.size());
         }
 
         // we have to create different CSV files: for each iteration, starting just with the first release, we add the next release
@@ -47,15 +52,15 @@ public class WalkForward {
             /* i must be > 1: we skip the first iteration, as it doesn't have the training set -> inaccurate predictions */
 
             // training set
-            System.out.println("\n\nRetrieving tickets for the first " + i + " releases");
+            logger.info("Retrieving tickets for the first {} releases", i);
 
             String filenameCSV = "/home/simoneb/ISW2/" + projName + "_" + i + "/" + projName + "_" + i + "_training-set.csv";
 
             if (!new File(filenameCSV).exists()) {
                 List<Ticket> ticketsForTrainSet = TicketRetriever.retrieveTickets(projName, i - 1);
-                List<Class> classesForTrainSet = CommitRetriever.retrieveCommits(projName, ticketsForTrainSet, i - 1, true);
+                List<Class> classesForTrainSet = CommitRetriever.retrieveCommits(projName, ticketsForTrainSet, i - 1);
 
-                File trainFile = CSV.generateCSVForWF(CSV.Type.TRAINING_SET, classesForTrainSet, projName, i);
+                CSV.generateCSVForWF(CSV.Type.TRAINING_SET, classesForTrainSet, projName, i);
             }
 
             // testing set
@@ -65,49 +70,7 @@ public class WalkForward {
                     classesForTestSet.add(c);
             }
 
-            File testFile = CSV.generateCSVForWF(CSV.Type.TESTING_SET, classesForTestSet, projName, i);
-
-            /*
-            File trainArff = wekaUtils.CSVToARFF(trainFile);
-            File testArff = wekaUtils.CSVToARFF(testFile);
-
-            wekaUtils.removeAttribute(trainArff);
-            wekaUtils.removeAttribute(testArff);
-
-            wekaUtils.adjustAttributes(trainArff);
-            wekaUtils.adjustAttributes(testArff);
-
-             */
-
-                /*
-                if (i > 1) {
-                    List<Class> classesForTrainingSet = new ArrayList<>();
-                    List<Class> classesForTestingSet = new ArrayList<>();
-                    for (Class c : allClasses) {
-                        if (c.getRelease().getId() < i)
-                            classesForTrainingSet.add(c);
-                        else
-                            classesForTestingSet.add(c);
-                    }
-                    List<File> outputFiles = CSV.generateCSVForWF(classesForTrainingSet, classesForTestingSet, projName, i);
-                    File trainFile = outputFiles.get(0);
-                    File testFile = outputFiles.get(1);
-
-                    File trainArff = wekaUtils.CSVToARFF(trainFile);
-                    File testArff = wekaUtils.CSVToARFF(testFile);
-
-                    wekaUtils.removeAttribute(trainArff);
-                    wekaUtils.removeAttribute(testArff);
-
-                    files.add(outputFiles);
-
-                } else {
-                    List<File> outputFiles = CSV.generateCSVForWF(Collections.emptyList(), allClasses, projName, i);
-                    File testFile = outputFiles.get(0);
-                    wekaUtils.CSVToARFF(testFile);
-                }
-
-                 */
+            CSV.generateCSVForWF(CSV.Type.TESTING_SET, classesForTestSet, projName, i);
 
         }
 
@@ -126,7 +89,7 @@ public class WalkForward {
             try {
                 weka.classify(trainSetPath, testSetPath, i, projName);
             } catch (EmptyARFFException e) {
-                System.out.println("empty arff");
+                logger.warn("empty arff");
                 // ignore, empty ARFF file
             }
         }
@@ -134,6 +97,7 @@ public class WalkForward {
         weka.generateFiles();
     }
 
+    /*
     private static void getDominantClassifier(List<EvaluationReport> reports) {
         EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
         List<EvaluationReport> meanReports = new ArrayList<>();
@@ -170,9 +134,9 @@ public class WalkForward {
             for (EvaluationReport report : meanReports) {
                 if (report.isFeatureSelection()) {
                     if (report.getSamplingMethod() == null)
-                        System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " with FS search method " + report.getFSSearchMethod().toString().toLowerCase());
+                        System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " with FS search method " + report.getFsSearchMethod().toString().toLowerCase());
                     else
-                        System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " with FS search method " + report.getFSSearchMethod().toString().toLowerCase() + "and with " + report.getSamplingMethod().toString().toLowerCase());
+                        System.out.println("\nEvaluation for classifier " + report.getClassifier().toString().toLowerCase() + " with FS search method " + report.getFsSearchMethod().toString().toLowerCase() + "and with " + report.getSamplingMethod().toString().toLowerCase());
 
                 }
                 else
@@ -180,7 +144,7 @@ public class WalkForward {
 
                 System.out.println("Mean precision = " + report.getPrecision());
                 System.out.println("Mean recall = " + report.getRecall());
-                System.out.println("Mean AUC = " + report.getAUC());
+                System.out.println("Mean AUC = " + report.getAuc());
                 System.out.println("Mean kappa = " + report.getKappa());
             }
 
@@ -189,4 +153,6 @@ public class WalkForward {
             e.printStackTrace();
         }
     }
+
+     */
 }

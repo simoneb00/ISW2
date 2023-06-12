@@ -1,3 +1,5 @@
+package retrievers;
+
 import model.Release;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONObject;
@@ -14,12 +16,14 @@ import static utils.JSON.readJsonFromUrl;
 
 public class GetReleaseInfo {
 
-    public static HashMap<LocalDateTime, String> releaseNames;
-    public static HashMap<LocalDateTime, String> releaseID;
-    //public static ArrayList<LocalDateTime> releases;
-    public static Integer numVersions;
+    private static List<Release> releases;
+    private static final String RELEASE_DATE = "releaseDate";
 
-    public static ArrayList<Release> releases;
+    private GetReleaseInfo() {}
+
+    public static List<Release> getReleases() {
+        return releases;
+    }
 
     public static List<Release> getReleaseInfo(String projName, boolean ignoreCSV, int numVersions, boolean splitReleases) throws IOException, JSONException, org.codehaus.jettison.json.JSONException {
 
@@ -30,16 +34,14 @@ public class GetReleaseInfo {
         String url = "https://issues.apache.org/jira/rest/api/2/project/" + projName;
         org.codehaus.jettison.json.JSONObject json = readJsonFromUrl(url);
         JSONArray versions = json.getJSONArray("versions");
-        releaseNames = new HashMap<LocalDateTime, String>();
-        releaseID = new HashMap<LocalDateTime, String>();
 
         ArrayList<LocalDate> dateArray = new ArrayList<>();
 
         JSONArray versionsWithReleaseDate = new JSONArray();
 
         for (i = 0; i < versions.length(); i++) {
-            if (versions.getJSONObject(i).has("releaseDate")) {
-                dateArray.add(LocalDate.parse(versions.getJSONObject(i).get("releaseDate").toString()));
+            if (versions.getJSONObject(i).has(RELEASE_DATE)) {
+                dateArray.add(LocalDate.parse(versions.getJSONObject(i).get(RELEASE_DATE).toString()));
                 versionsWithReleaseDate.put(versions.getJSONObject(i));
             }
         }
@@ -58,7 +60,7 @@ public class GetReleaseInfo {
 
         do {
             for (int j = 0; j < versionsWithReleaseDate.length(); j++) {
-                if (LocalDate.parse(versionsWithReleaseDate.getJSONObject(j).get("releaseDate").toString()).isEqual(dateArray.get(i))) {
+                if (LocalDate.parse(versionsWithReleaseDate.getJSONObject(j).get(RELEASE_DATE).toString()).isEqual(dateArray.get(i))) {
                     releasesOrderedArray.add(i, versionsWithReleaseDate.getJSONObject(j));
                     i++;
                     break;
@@ -74,7 +76,7 @@ public class GetReleaseInfo {
 
             /* ASSUMPTION: since there are different releases with the same release date, we take only the first one of them */
 
-            if (!existsReleaseWithDate(LocalDate.parse(releasesOrderedArray.get(i).get("releaseDate").toString()))) {
+            if (!existsReleaseWithDate(LocalDate.parse(releasesOrderedArray.get(i).get(RELEASE_DATE).toString()))) {
                 addRelease(j + 1, releasesOrderedArray.get(i));
                 j++;
             }
@@ -92,7 +94,7 @@ public class GetReleaseInfo {
 
 
     private static void addRelease(int id, JSONObject release) throws org.codehaus.jettison.json.JSONException {
-        LocalDate releaseDate = LocalDate.parse(release.get("releaseDate").toString());
+        LocalDate releaseDate = LocalDate.parse(release.get(RELEASE_DATE).toString());
         LocalDateTime releaseDateTime = releaseDate.atStartOfDay();
 
         Release r = new Release(id, release.get("name").toString(), releaseDateTime);

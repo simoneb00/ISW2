@@ -17,11 +17,11 @@ public class EvaluationReportUtils {
         List<EvaluationReport> reportsBF = new ArrayList<>();
 
         for (EvaluationReport report : reports) {
-            if (report.getFSSearchMethod() == Weka.SearchMethods.BACKWARD_SEARCH)
+            if (report.getFsSearchMethod() == Weka.SearchMethods.BACKWARD_SEARCH)
                 reportsBS.add(report);
-            else if (report.getFSSearchMethod() == Weka.SearchMethods.FORWARD_SEARCH)
+            else if (report.getFsSearchMethod() == Weka.SearchMethods.FORWARD_SEARCH)
                 reportsFS.add(report);
-            else if (report.getFSSearchMethod() == Weka.SearchMethods.BIDIRECTIONAL_SEARCH)
+            else if (report.getFsSearchMethod() == Weka.SearchMethods.BIDIRECTIONAL_SEARCH)
                 reportsBF.add(report);
             else
                 throw new Exception("divideReportsBySearchMethod: Unexpected search method");
@@ -121,7 +121,7 @@ public class EvaluationReportUtils {
         for (EvaluationReport report : reports) {
             meanPrecision += report.getPrecision();
             meanRecall += report.getRecall();
-            meanAUC += report.getAUC();
+            meanAUC += report.getAuc();
             meanKappaValue += report.getKappa();
         }
 
@@ -130,6 +130,6 @@ public class EvaluationReportUtils {
         meanAUC = meanAUC / reports.size();
         meanKappaValue = meanKappaValue / reports.size();
 
-        return new EvaluationReport(0, reports.get(0).getClassifier(), reports.get(0).getDataset(), meanPrecision, meanRecall, meanAUC, meanKappaValue, reports.get(0).isFeatureSelection(), reports.get(0).getFSSearchMethod(), reports.get(0).getSamplingMethod(), false);
+        return new EvaluationReport(0, reports.get(0).getClassifier(), reports.get(0).getDataset(), meanPrecision, meanRecall, meanAUC, meanKappaValue, reports.get(0).isFeatureSelection(), reports.get(0).getFsSearchMethod(), reports.get(0).getSamplingMethod(), false);
     }
 }

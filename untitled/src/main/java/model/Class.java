@@ -15,10 +15,10 @@ public class Class {
     private boolean isBuggy;
 
     private int size;
-    private int NAuth;
+    private int nAuth;
     private int fanOut;
-    private int NR;
-    private int LOCAdded;
+    private int nR;
+    private int locAdded;
     private int maxLOCAdded;
     private float averageLOCAdded;
     private int churn;
@@ -34,9 +34,9 @@ public class Class {
         this.associatedCommits = new ArrayList<>();
         this.isBuggy = false;
         this.size = 0;
-        this.NAuth = 0;
-        this.NR = 0;
-        this.LOCAdded = 0;
+        this.nAuth = 0;
+        this.nR = 0;
+        this.locAdded = 0;
         this.maxLOCAdded = 0;
         this.averageLOCAdded = 0;
         this.churn = 0;
@@ -116,28 +116,28 @@ public class Class {
     public void setSize(int size) {
         this.size = size;
     }
-    public int getNAuth() {
-        return NAuth;
+    public int getnAuth() {
+        return nAuth;
     }
 
-    public void setNAuth(int NAuth) {
-        this.NAuth = NAuth;
+    public void setnAuth(int nAuth) {
+        this.nAuth = nAuth;
     }
 
-    public int getNR() {
-        return NR;
+    public int getnR() {
+        return nR;
     }
 
-    public void setNR(int NR) {
-        this.NR = NR;
+    public void setnR(int nR) {
+        this.nR = nR;
     }
 
-    public int getLOCAdded() {
-        return LOCAdded;
+    public int getLocAdded() {
+        return locAdded;
     }
 
-    public void setLOCAdded(int LOCAdded) {
-        this.LOCAdded = LOCAdded;
+    public void setLocAdded(int locAdded) {
+        this.locAdded = locAdded;
     }
 
     public int getMaxLOCAdded() {

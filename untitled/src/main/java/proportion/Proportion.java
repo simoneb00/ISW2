@@ -1,13 +1,18 @@
+package proportion;
+
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
+import exceptions.ExecutionException;
 import exceptions.InvalidTicketException;
 import model.Release;
 import model.Ticket;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
+import org.slf4j.LoggerFactory;
+import retrievers.GetReleaseInfo;
+import retrievers.TicketRetriever;
 
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -32,6 +37,11 @@ public class Proportion {
     // Predicted IV = FV - (FV - OV) * P
 
 
+    static org.slf4j.Logger logger = LoggerFactory.getLogger(Proportion.class);
+
+    private Proportion() {
+    }
+
     private static List<String> allProjects = Arrays.asList(
             "AVRO",
             "OPENJPA",
@@ -44,18 +54,17 @@ public class Proportion {
             "KAFKA"
     );
 
-    public static void coldStartProportion(ArrayList<Ticket> tickets, String projName) throws JSONException, IOException {
+    public static void coldStartProportion(List<Ticket> tickets, String projName) throws JSONException, IOException, ExecutionException {
 
-        ArrayList<Float> proportionValues = new ArrayList<>();
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, false);
 
-        FileWriter fileWriter = null;
+
         Path proportionFile = Paths.get("Proportion" + projName + ".csv");
 
         if (!Files.exists(proportionFile)) {
-            try {
-                System.out.println("Proportion.csv does not exist for " + projName);
-                fileWriter = new FileWriter("Proportion" + projName + ".csv");
+            FileWriter fileWriter = new FileWriter("proportion.Proportion" + projName + ".csv");
+                logger.warn("Proportion.csv does not exist for {}", projName);
+
 
                 fileWriter.append("Project, Proportion Value");
                 fileWriter.append("\n");
@@ -67,54 +76,35 @@ public class Proportion {
                     }
                 }
 
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                fileWriter.close();
-            }
         }
 
 
-        proportionValues = readProportionFile(projName);
+        List<Float> proportionValues = readProportionFile(projName);
 
         Collections.sort(proportionValues);
 
-        System.out.println("Proportion values: " + proportionValues);
-
-        System.out.println(median(proportionValues));
-
         int proportionValue = Math.round(median(proportionValues));
 
-        System.out.println("Proportion value: " + proportionValue);
-
-        System.out.println("releases: ");
-        for (Release release : releases) {
-            System.out.println(release.getId());
-        }
+        logger.info("Proportion value: {}", proportionValue);
 
         for (Ticket ticket : tickets) {
-            if (ticket.injectedVersion == null) {
-                if (ticket.fixVersion != null) {
-                    /* TODO improve */
-                    if (ticket.openingVersion.getId() == ticket.fixVersion.getId())
-                        ticket.injectedVersion = releases.get(Math.max(0, ticket.fixVersion.getId() - 3));
-                    else
-                        ticket.injectedVersion = releases.get(
-                            Math.max(0, Math.round((float) ticket.fixVersion.getId() - (ticket.fixVersion.getId() - ticket.openingVersion.getId()) * proportionValue) - 1));
-                }
+            if (ticket.getInjectedVersion() == null && ticket.getFixVersion() != null) {
+                /* TODO improve */
+                if (ticket.getOpeningVersion().getId() == ticket.getFixVersion().getId())
+                    ticket.setInjectedVersion(releases.get(Math.max(0, ticket.getFixVersion().getId() - 3)));
+                else
+                    ticket.setInjectedVersion(releases.get(
+                            Math.max(0, Math.round((float) ticket.getFixVersion().getId() - (ticket.getFixVersion().getId() - ticket.getOpeningVersion().getId()) * proportionValue) - 1)));
+
             }
         }
     }
 
-    private static ArrayList<Float> readProportionFile(String projName) throws IOException {
+    private static ArrayList<Float> readProportionFile(String projName) throws IOException, ExecutionException {
 
-        CSVReader csvReader = null;
         ArrayList<Float> proportionValues = new ArrayList<>();
 
-        try {
-
-            csvReader = new CSVReader(new FileReader("Proportion" + projName + ".csv"));
+        try (CSVReader csvReader = new CSVReader(new FileReader("Proportion" + projName + ".csv"))) {
             List<String[]> r = csvReader.readAll();
             for (String[] row : r) {
                 for (String proj : allProjects) {
@@ -123,14 +113,8 @@ public class Proportion {
                     }
                 }
             }
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (CsvException e) {
-            throw new RuntimeException(e);
-        } finally {
-            csvReader.close();
+        } catch (IOException | CsvException e) {
+            throw new ExecutionException(e);
         }
 
         return proportionValues;
@@ -139,7 +123,7 @@ public class Proportion {
     private static float median(List<Float> list) {
         float sum;
         if (list.size() % 2 == 0) {
-            sum = (float) list.get(list.size() / 2 - 1) + (float) list.get(list.size() / 2);
+            sum = list.get(list.size() / 2 - 1) + list.get(list.size() / 2);
             return sum / 2;
         } else {
             return list.get(list.size() / 2);
@@ -151,15 +135,15 @@ public class Proportion {
      */
     public static void computeProportion(Ticket ticket) {
 
-        if (ticket.fixVersion == null) {
+        if (ticket.getFixVersion() == null) {
             /* this ticket is not available */
             return;
         }
 
-        if (ticket.injectedVersion.getId() <= ticket.openingVersion.getId() && ticket.fixVersion.getId() == ticket.openingVersion.getId())
-            ticket.proportion = ticket.fixVersion.getId() - ticket.injectedVersion.getId();
-        else if (ticket.injectedVersion.getId() <= ticket.openingVersion.getId() && ticket.openingVersion.getId() < ticket.fixVersion.getId()) {
-            ticket.proportion = (float) (ticket.fixVersion.getId() - ticket.injectedVersion.getId()) / (ticket.fixVersion.getId() - ticket.openingVersion.getId());
+        if (ticket.getInjectedVersion().getId() <= ticket.getOpeningVersion().getId() && ticket.getFixVersion().getId() == ticket.getOpeningVersion().getId())
+            ticket.setProportion(ticket.getFixVersion().getId() - ticket.getInjectedVersion().getId());
+        else if (ticket.getInjectedVersion().getId() <= ticket.getOpeningVersion().getId() && ticket.getOpeningVersion().getId() < ticket.getFixVersion().getId()) {
+            ticket.setProportion((float) (ticket.getFixVersion().getId() - ticket.getInjectedVersion().getId()) / (ticket.getFixVersion().getId() - ticket.getOpeningVersion().getId()));
         }
 
     }
@@ -173,7 +157,7 @@ public class Proportion {
         // numVersions = 0 means that we want all the versions
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, false);
 
-        System.out.println("Retrieving tickets for project " + projName);
+        logger.info("Retrieving tickets for project {}", projName);
 
         do {
             String query = "search?jql=project=" + projName + "+and+type=bug+and+(status=closed+or+status=resolved)+and+resolution=fixed&maxResults=1000&startAt=" + startAt;
@@ -184,7 +168,7 @@ public class Proportion {
 
             for (int i = 0; i < issues.length(); i++) {
                 try {
-                    tickets.add(TicketRetriever.getTicket(issues.getJSONObject(i), releases, releases.get(releases.size()-1).getDate()));
+                    tickets.add(TicketRetriever.getTicket(issues.getJSONObject(i), releases, releases.get(releases.size() - 1).getDate()));
                 } catch (JSONException e) {
                     e.printStackTrace();
                 } catch (InvalidTicketException e) {
@@ -198,13 +182,13 @@ public class Proportion {
 
         int count = 0;
         for (Ticket ticket : tickets) {
-            if (ticket.proportion != 0) {
+            if (ticket.getProportion() != 0) {
                 count++;
             }
         }
 
-        System.out.println("Tickets having proportion (project " + projName + "):" + count + " over " + tickets.size() + " tickets");
-        System.out.println("proportion mean (project " + projName + "):" + TicketRetriever.getProportionMean(tickets));
+        logger.info("Tickets having proportion (project {}): {} over {} tickets", projName, count, tickets.size());
+        logger.info("proportion mean (project {} ): {} ", projName, TicketRetriever.getProportionMean(tickets));
 
         return TicketRetriever.getProportionMean(tickets);
 

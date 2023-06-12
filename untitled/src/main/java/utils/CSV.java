@@ -41,10 +41,10 @@ public class CSV {
                 String row = c.getRelease().getId() + ", " +
                         c.getName() + ", " +
                         c.getSize() + ", " +
-                        c.getNAuth() + ", " +
+                        c.getnAuth() + ", " +
                         c.getFanOut() + ", " +
-                        c.getNR() + ", " +
-                        c.getLOCAdded() + ", " +
+                        c.getnR() + ", " +
+                        c.getLocAdded() + ", " +
                         c.getMaxLOCAdded() + ", " +
                         c.getAverageLOCAdded() + ", " +
                         c.getChurn() + ", " +
@@ -111,7 +111,7 @@ public class CSV {
                             + report.getClassifier().toString().toLowerCase() + ", "
                             + report.getPrecision() + ", "
                             + report.getRecall() + ", "
-                            + report.getAUC() + ", "
+                            + report.getAuc() + ", "
                             + report.getKappa();
 
                     fileWriterNoFS.append(row);
@@ -147,7 +147,7 @@ public class CSV {
 
                 if (fileWriter != null)
                     fileWriter.flush();
-                fileWriter = new FileWriter(list.get(0).getDataset() + "-report-withFS-" + list.get(0).getFSSearchMethod().toString().toLowerCase() + ".csv");
+                fileWriter = new FileWriter(list.get(0).getDataset() + "-report-withFS-" + list.get(0).getFsSearchMethod().toString().toLowerCase() + ".csv");
 
                 fileWriter.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa, Search Method").append("\n");
 
@@ -157,9 +157,9 @@ public class CSV {
                             + report.getClassifier().toString().toLowerCase() + ", "
                             + report.getPrecision() + ", "
                             + report.getRecall() + ", "
-                            + report.getAUC() + ", "
+                            + report.getAuc() + ", "
                             + report.getKappa() + ", "
-                            + report.getFSSearchMethod() + "\n");
+                            + report.getFsSearchMethod() + "\n");
                 }
             }
 
@@ -201,9 +201,9 @@ public class CSV {
                             .append(", ").append(report.getClassifier().toString().toLowerCase())
                             .append(", ").append(String.valueOf(report.getPrecision()))
                             .append(", ").append(String.valueOf(report.getRecall()))
-                            .append(", ").append(String.valueOf(report.getAUC()))
+                            .append(", ").append(String.valueOf(report.getAuc()))
                             .append(", ").append(String.valueOf(report.getKappa()))
-                            .append(", ").append(String.valueOf(report.getFSSearchMethod()))
+                            .append(", ").append(String.valueOf(report.getFsSearchMethod()))
                             .append(", ").append(String.valueOf(report.getSamplingMethod()))
                             .append("\n");
                 }
@@ -236,9 +236,9 @@ public class CSV {
                         .append(", ").append(report.getClassifier().toString().toLowerCase())
                         .append(", ").append(String.valueOf(report.getPrecision()))
                         .append(", ").append(String.valueOf(report.getRecall()))
-                        .append(", ").append(String.valueOf(report.getAUC()))
+                        .append(", ").append(String.valueOf(report.getAuc()))
                         .append(", ").append(String.valueOf(report.getKappa()))
-                        .append(", ").append(String.valueOf(report.getFSSearchMethod()))
+                        .append(", ").append(String.valueOf(report.getFsSearchMethod()))
                         .append("\n");
             }
 

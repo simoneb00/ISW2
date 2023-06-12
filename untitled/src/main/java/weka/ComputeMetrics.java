@@ -1,3 +1,5 @@
+package weka;
+
 import model.Class;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
@@ -52,7 +54,7 @@ public class ComputeMetrics {
             authors.add(commit.getAuthorIdent().getName());
         }
 
-        c.setNAuth(authors.size());
+        c.setnAuth(authors.size());
     }
 
     private void setFanOut(Class c) {
@@ -68,7 +70,7 @@ public class ComputeMetrics {
     }
 
     private void setNR(Class c) {
-        c.setNR(c.getAssociatedCommits().size());
+        c.setnR(c.getAssociatedCommits().size());
     }
 
     private void setLOCAndChurn(Class c) throws IOException {
@@ -89,7 +91,7 @@ public class ComputeMetrics {
             sumLOCAdded += l;
         }
 
-        c.setLOCAdded(sumLOCAdded);
+        c.setLocAdded(sumLOCAdded);
 
 
         // Churn

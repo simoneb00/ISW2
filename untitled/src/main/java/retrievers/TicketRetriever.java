@@ -1,9 +1,13 @@
+package retrievers;
+
+import exceptions.ExecutionException;
 import exceptions.InvalidTicketException;
 import model.Release;
 import model.Ticket;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
+import proportion.Proportion;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -16,7 +20,7 @@ import static utils.JSON.readJsonFromUrl;
 public class TicketRetriever {
 
 
-    public static ArrayList<Ticket> retrieveTickets(String projName, int numReleases) throws JSONException, IOException {
+    public static ArrayList<Ticket> retrieveTickets(String projName, int numReleases) throws JSONException, IOException, ExecutionException {
         int startAt = 0;
 
         ArrayList<Ticket> tickets = new ArrayList<>();
@@ -52,7 +56,7 @@ public class TicketRetriever {
 
         int count = 0;
         for (Ticket ticket : tickets) {
-            if (ticket.proportion != 0) {
+            if (ticket.getProportion() != 0) {
                 count++;
             }
         }
@@ -62,11 +66,6 @@ public class TicketRetriever {
         Proportion.coldStartProportion(tickets, projName);
 
         count = 0;
-
-        for (Ticket ticket : tickets) {
-            if (ticket.fixVersion != null)
-                System.out.println(ticket.key + " - " + ticket.injectedVersion.getId() + ", " + ticket.openingVersion.getId() + ", " + ticket.fixVersion.getId());
-        }
 
         System.out.println("Tickets having injected version: " + count);
 
@@ -90,54 +89,53 @@ public class TicketRetriever {
 
         if (resolutionDate.isAfter(rels.get(rels.size() - 1).getDate())) {
             /* this ticket has been resolved in a release that hasn't been released yet, so we do not know the fix version */
-            ticket.fixVersion = null;
+            ticket.setFixVersion(null);
         } else {
-            ticket.fixVersion = getRelease(resolutionDate);
+            ticket.setFixVersion(getRelease(resolutionDate));
         }
 
-        ticket.id = ticketInfo.get("id").toString();
-        ticket.key = ticketInfo.get("key").toString();
+        ticket.setId(ticketInfo.get("id").toString());
+        ticket.setKey(ticketInfo.get("key").toString());
 
         // walk-forward
         if (creationDate.isAfter(lastDate)) {
-            System.out.println("issue found for ticket " + ticket.key + "; creation date = " + creationDate + " vs " + lastDate);
             throw new InvalidTicketException();
         }
 
-        ticket.openingVersion = getRelease(creationDate);
+        ticket.setOpeningVersion(getRelease(creationDate));
 
         /* we're taking the 'component' value in order to set the classes buggyness when the tickets have not associated commits (walk forward) */
         JSONArray components = fields.getJSONArray("components");
 
         for (int i = 0; i < components.length(); i++) {
-            ticket.affectedComponents.add(components.getJSONObject(i).get("name").toString());
+            ticket.getAffectedComponents().add(components.getJSONObject(i).get("name").toString());
         }
 
         JSONArray versions = fields.getJSONArray("versions");
 
         if (versions.isNull(0)) {
             // this ticket does not have the affected versions field
-            ticket.affectedVersions = null;
+            ticket.setAffectedVersions(null);
         } else {
             for (int i = 0; i < versions.length(); i++) {
                 if (versions.getJSONObject(i).has("releaseDate"))
-                    ticket.affectedVersions.add(getRelease(LocalDate.parse(versions.getJSONObject(i).get("releaseDate").toString()).atStartOfDay()));
+                    ticket.getAffectedVersions().add(getRelease(LocalDate.parse(versions.getJSONObject(i).get("releaseDate").toString()).atStartOfDay()));
             }
         }
 
-        if (ticket.affectedVersions != null && !ticket.affectedVersions.isEmpty()) {
+        if (ticket.getAffectedVersions() != null && !ticket.getAffectedVersions().isEmpty()) {
 
             // ASSUMPTION: we take as IV the earliest AV (i.e., the release in AV with the lowest id)
-            Release injVersion = ticket.affectedVersions.get(0);
+            Release injVersion = ticket.getAffectedVersions().get(0);
 
-            for (Release affVersion : ticket.affectedVersions) {
+            for (Release affVersion : ticket.getAffectedVersions()) {
                 if (affVersion.getId() < injVersion.getId())
                     injVersion = affVersion;
             }
 
             /* the code below avoids the cases (e.g. ticket BOOKKEEPER-313) in which the affected versions are all subsequents to the opening version */
-            if (injVersion.getId() <= ticket.openingVersion.getId()) {
-                ticket.injectedVersion = injVersion;
+            if (injVersion.getId() <= ticket.getOpeningVersion().getId()) {
+                ticket.setInjectedVersion(injVersion);
                 Proportion.computeProportion(ticket);
             }
         }
@@ -149,8 +147,8 @@ public class TicketRetriever {
         float sum = 0;
         int count = 0;
         for (Ticket ticket : tickets) {
-            if (ticket.proportion > 0) {
-                sum += ticket.proportion;
+            if (ticket.getProportion() > 0) {
+                sum += ticket.getProportion();
                 count++;
             }
         }
@@ -162,7 +160,7 @@ public class TicketRetriever {
     public static Release getRelease(LocalDateTime date) {
 
         int i = 0;
-        List<Release> rels = GetReleaseInfo.releases;
+        List<Release> rels = GetReleaseInfo.getReleases();
 
         while (rels.get(i).getDate().isBefore(date)) {
             i++;
@@ -179,11 +177,11 @@ public class TicketRetriever {
 
         //for (Ticket ticket : filteredTickets) {
         for (Ticket ticket : tickets) {
-            if (ticket.fixVersion == null) {
+            if (ticket.getFixVersion() == null) {
                 ticketsWithAV.add(ticket);
                 continue;
             }
-            if (ticket.fixVersion.getId() > ticket.injectedVersion.getId()) {
+            if (ticket.getFixVersion().getId() > ticket.getInjectedVersion().getId()) {
                 // these tickets have fix version different from the injected version, so they have AV
                 ticketsWithAV.add(ticket);
             }
@@ -198,7 +196,7 @@ public class TicketRetriever {
 
         for (Ticket ticket : tickets) {
             //if (!ticket.injectedVersion.getDate().isAfter(releases.get(releases.size() - 1).getDate()))
-            if (!ticket.openingVersion.getDate().isAfter(releases.get(releases.size() - 1).getDate()))
+            if (!ticket.getOpeningVersion().getDate().isAfter(releases.get(releases.size() - 1).getDate()))
                 filteredList.add(ticket);
 
         }
