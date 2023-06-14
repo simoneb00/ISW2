@@ -1,5 +1,6 @@
 package weka;
 
+import exceptions.ExecutionException;
 import model.Class;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
@@ -58,7 +59,7 @@ public class ComputeMetrics {
     }
 
     private void setFanOut(Class c) {
-        String[] words = c.getImplementation().replaceAll("\\p{Punct}", "").replaceAll("\n", " ").split(" ");
+        String[] words = c.getImplementation().replace("\\p{Punct}", "").replace("\n", " ").split(" ");
 
         int count = 0;
         for (String word : words) {
@@ -73,7 +74,7 @@ public class ComputeMetrics {
         c.setnR(c.getAssociatedCommits().size());
     }
 
-    private void setLOCAndChurn(Class c) throws IOException {
+    private void setLOCAndChurn(Class c) throws IOException, ExecutionException {
 
         List<List<Integer>> locAddedAndDeleted = getLOCAddedAndDeleted(c);
         List<Integer> locAdded = locAddedAndDeleted.get(0);
@@ -163,7 +164,7 @@ public class ComputeMetrics {
         return (float) sum / array.size();
     }
 
-    private List<List<Integer>> getLOCAddedAndDeleted(Class c) throws IOException {
+    private List<List<Integer>> getLOCAddedAndDeleted(Class c) throws IOException, ExecutionException {
 
         List<RevCommit> commits = c.getAssociatedCommits();
         List<List<Integer>> locAddedAndDeleted = new ArrayList<>();
@@ -190,9 +191,9 @@ public class ComputeMetrics {
                 }
 
             } catch (ArrayIndexOutOfBoundsException e) {
-
+                // ignore
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new ExecutionException(e);
             }
         }
 
@@ -222,7 +223,7 @@ public class ComputeMetrics {
         return deletedLOC;
     }
 
-    public void computeMetrics(List<Class> allClasses, String projName) throws IOException {
+    public void computeMetrics(List<Class> allClasses, String projName) throws IOException, ExecutionException {
         this.projName = projName;
         for (Class c : allClasses) {
             setSize(c);

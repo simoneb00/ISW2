@@ -1,5 +1,6 @@
 package utils;
 
+import exceptions.ExecutionException;
 import model.Classifier;
 import model.EvaluationReport;
 import weka.Weka;
@@ -9,7 +10,7 @@ import java.util.List;
 
 public class EvaluationReportUtils {
 
-    public List<List<EvaluationReport>> divideReportsBySearchMethod(List<EvaluationReport> reports) throws Exception {
+    public List<List<EvaluationReport>> divideReportsBySearchMethod(List<EvaluationReport> reports) throws ExecutionException {
         List<List<EvaluationReport>> reportsLists = new ArrayList<>();
 
         List<EvaluationReport> reportsBS = new ArrayList<>();
@@ -24,7 +25,7 @@ public class EvaluationReportUtils {
             else if (report.getFsSearchMethod() == Weka.SearchMethods.BIDIRECTIONAL_SEARCH)
                 reportsBF.add(report);
             else
-                throw new Exception("divideReportsBySearchMethod: Unexpected search method");
+                throw new ExecutionException("divideReportsBySearchMethod: Unexpected search method");
         }
 
         reportsLists.add(reportsBS);
@@ -56,7 +57,7 @@ public class EvaluationReportUtils {
         return reportsWithFS;
     }
 
-    public List<List<EvaluationReport>> divideReportsByClassifier(List<EvaluationReport> reports) throws Exception {
+    public List<List<EvaluationReport>> divideReportsByClassifier(List<EvaluationReport> reports) throws ExecutionException {
         List<List<EvaluationReport>> list = new ArrayList<>();
         List<EvaluationReport> reportsNB = new ArrayList<>();
         List<EvaluationReport> reportsRF = new ArrayList<>();
@@ -70,7 +71,7 @@ public class EvaluationReportUtils {
             else if (report.getClassifier() == Classifier.Type.IBK)
                 reportsIBk.add(report);
             else
-                throw new Exception("divideReportsByClassifier: Unexpected classifier");
+                throw new ExecutionException("divideReportsByClassifier: Unexpected classifier");
         }
 
         list.add(reportsNB);
@@ -80,7 +81,7 @@ public class EvaluationReportUtils {
         return list;
     }
 
-    public List<List<EvaluationReport>> divideReportsBySamplingMethod(List<EvaluationReport> reports) throws Exception {
+    public List<List<EvaluationReport>> divideReportsBySamplingMethod(List<EvaluationReport> reports) throws ExecutionException {
         List<List<EvaluationReport>> list = new ArrayList<>();
         List<EvaluationReport> undersamplingReports = new ArrayList<>();
         List<EvaluationReport> oversamplingReports = new ArrayList<>();
@@ -91,7 +92,7 @@ public class EvaluationReportUtils {
             else if (report.getSamplingMethod() == Weka.SamplingMethod.OVERSAMPLING)
                 oversamplingReports.add(report);
             else if (report.getSamplingMethod() != null)
-                throw new Exception("divideReportsBySamplingMethod: Unexpected sampling method");
+                throw new ExecutionException("divideReportsBySamplingMethod: Unexpected sampling method");
         }
 
         list.add(undersamplingReports);

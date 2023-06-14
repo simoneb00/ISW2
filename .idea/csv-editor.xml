@@ -38,6 +38,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="/BOOKKEEPER-report-withFS-bidirectional_search.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="/BOOKKEEPER-report-withFS-forward_search.csv">
           <value>
             <Attribute>

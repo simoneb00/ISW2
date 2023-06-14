@@ -1,6 +1,7 @@
 package weka;
 
 import exceptions.EmptyARFFException;
+import exceptions.ExecutionException;
 import model.Classifier;
 import model.EvaluationReport;
 import utils.ARFF;
@@ -385,7 +386,7 @@ public class Weka {
         }
     }
 
-    public void generateFiles() {
+    public void generateFiles() throws Exception {
 
         CSV.generateCSVForReportsWithoutFS(reportsWithoutFS);
         CSV.generateCSVForReportsWithFS(reportsWithFS);

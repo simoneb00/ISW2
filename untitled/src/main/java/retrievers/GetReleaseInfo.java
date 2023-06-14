@@ -1,5 +1,6 @@
 package retrievers;
 
+import exceptions.ExecutionException;
 import model.Release;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONObject;
@@ -25,7 +26,7 @@ public class GetReleaseInfo {
         return releases;
     }
 
-    public static List<Release> getReleaseInfo(String projName, boolean ignoreCSV, int numVersions, boolean splitReleases) throws IOException, JSONException, org.codehaus.jettison.json.JSONException {
+    public static List<Release> getReleaseInfo(String projName, boolean ignoreCSV, int numVersions, boolean splitReleases) throws IOException, JSONException, org.codehaus.jettison.json.JSONException, ExecutionException {
 
         //Fills the arraylist with releases dates and orders them
         //Ignores releases with missing dates

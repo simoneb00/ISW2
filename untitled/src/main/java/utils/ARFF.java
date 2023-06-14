@@ -1,5 +1,6 @@
 package utils;
 
+import exceptions.ExecutionException;
 import model.Class;
 
 import java.io.*;
@@ -7,15 +8,11 @@ import java.util.List;
 
 public class ARFF {
 
-    public static void generateARFF(String filename, List<Class> classes) {
+    public static void generateARFF(String filename, List<Class> classes) throws ExecutionException {
         File file = new File(filename);
 
-        FileWriter fileWriter = null;
 
-        try {
-            fileWriter = new FileWriter(file);
-
-            String name = filename.substring(0, filename.length() - 4);
+        try (FileWriter fileWriter = new FileWriter(file)) {
 
             fileWriter.append(
                     "@relation " + filename + "\n" +
@@ -55,46 +52,29 @@ public class ARFF {
             }
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
-        } finally {
-            try {
-                fileWriter.flush();
-                fileWriter.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            throw new ExecutionException(e);
         }
     }
 
-    public int countNumOccurrences(File arff, String word) {
+    public int countNumOccurrences(File arff, String word) throws ExecutionException {
         String line;
         int count = 0;
-        FileReader fileReader = null;
-        BufferedReader bufferedReader = null;
 
-        try {
-            fileReader = new FileReader(arff);
-            bufferedReader = new BufferedReader(fileReader);
+        try (
+            FileReader fileReader = new FileReader(arff);
+            BufferedReader bufferedReader = new BufferedReader(fileReader)
+            ) {
 
             while ((line = bufferedReader.readLine()) != null) {
-                String words[] = line.split(",");
+                String[] words = line.split(",");
                 for (String w : words) {
                     if (w.equals(word))
                         count++;
                 }
             }
 
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
         } catch (IOException e) {
-            throw new RuntimeException(e);
-        } finally {
-            try {
-                fileReader.close();
-                bufferedReader.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            throw new ExecutionException(e);
         }
 
         return count;

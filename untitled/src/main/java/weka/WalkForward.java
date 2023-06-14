@@ -77,7 +77,7 @@ public class WalkForward {
         return files;
     }
 
-    public static void classify(String projName) throws JSONException, IOException {
+    public static void classify(String projName) throws Exception {
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, true);
         Weka weka = new Weka();
 

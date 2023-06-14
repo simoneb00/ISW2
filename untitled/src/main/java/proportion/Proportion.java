@@ -148,7 +148,7 @@ public class Proportion {
 
     }
 
-    public static float getProportionForProject(String projName) throws JSONException, IOException {
+    public static float getProportionForProject(String projName) throws JSONException, IOException, ExecutionException {
 
         int startAt = 0;
         ArrayList<Ticket> tickets = new ArrayList<>();

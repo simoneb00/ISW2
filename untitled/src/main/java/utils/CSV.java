@@ -1,8 +1,11 @@
 package utils;
 
+import exceptions.ExecutionException;
 import model.Class;
 import model.EvaluationReport;
 import model.Release;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -17,23 +20,22 @@ public class CSV {
         TESTING_SET
     }
 
+    private static final Logger logger = LoggerFactory.getLogger(CSV.class);
     private static final String FIRST_ROW = "Version, File Name, LOC, NAuth, Fan-Out, Revisions, LOCAdded, MaxLOCAdded, averageLOCAdded, Churn, MaxChurn, AverageChurn, Time Span (days), Buggy";
 
     public static void generateCSV(List<Class> classes, String projName, int numVersions) throws IOException {
-        System.out.println("Generating the CSV file for " + projName + ", numVersions = " + numVersions);
+        logger.info("Generating the CSV file for {}, numVersions = {}", projName, numVersions);
         File file = new File(projName + ".csv");
-        PopulateFile(classes, file);
-        System.out.println("CSV generated for " + projName + ", numVersions = " + numVersions);
+        populateFile(classes, file);
+        logger.info("CSV generated for {}, numVersions = {}", projName, numVersions);
     }
 
-    private static void PopulateFile(List<Class> classes, File file) throws IOException {
+    private static void populateFile(List<Class> classes, File file) throws IOException {
 
-        FileWriter fileWriter = null;
-        BufferedWriter bufferedWriter = null;
-
-        try {
-            fileWriter = new FileWriter(file);
-            bufferedWriter = new BufferedWriter(fileWriter);
+        try (
+                FileWriter fileWriter = new FileWriter(file);
+                BufferedWriter bufferedWriter = new BufferedWriter(fileWriter)
+        ) {
             bufferedWriter.append(FIRST_ROW);
             bufferedWriter.append("\n");
 
@@ -57,37 +59,27 @@ public class CSV {
                 bufferedWriter.append("\n");
             }
 
-        } finally {
-            try {
-                fileWriter.flush();
-                bufferedWriter.flush();
-                fileWriter.close();
-                bufferedWriter.close();
-            } catch (IOException e) {
-                System.out.println("Error while flushing/closing fileWriter !!!");
-                e.printStackTrace();
-            }
         }
 
     }
 
-    public static File generateCSVForWF(Type type, List<Class> classes, String projName, int iteration) throws IOException {
+    public static File generateCSVForWF(Type type, List<Class> classes, String projName, int iteration) throws IOException, ExecutionException {
         if (type == Type.TRAINING_SET) {
-            String filenameCSV = "/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" + iteration + "_training-set.csv";
-            String filenameARFF = "/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" + iteration + "_training-set.arff";
+            String filenameCSV = getPath(projName, iteration, 0, 0);
+            String filenameARFF = getPath(projName, iteration, 0, 1);
             File trainFile = new File(filenameCSV);
             trainFile.getParentFile().mkdirs();
             trainFile.createNewFile();
-            PopulateFile(classes, trainFile);
+            populateFile(classes, trainFile);
             ARFF.generateARFF(filenameARFF, classes);
             return trainFile;
         } else if (type == Type.TESTING_SET) {
-            String filenameCSV = "/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" + iteration + "_testing-set.csv";
-            String filenameARFF = "/home/simoneb/ISW2/" + projName + "_" + iteration + "/" + projName + "_" + iteration + "_testing-set.arff";
+            String filenameCSV = getPath(projName, iteration, 1, 0);
+            String filenameARFF = getPath(projName, iteration, 1, 1);
             File testFile = new File(filenameCSV);
             testFile.getParentFile().mkdirs();
             testFile.createNewFile();
-            PopulateFile(classes, testFile);
+            populateFile(classes, testFile);
             ARFF.generateARFF(filenameARFF, classes);
             return testFile;
         }
@@ -95,12 +87,37 @@ public class CSV {
         return null;
     }
 
-    public static void generateCSVForReportsWithoutFS(List<EvaluationReport> reports) {
-        FileWriter fileWriterNoFS = null;
-        EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
+    /* setType = 0 -> training set; setType = 1 -> testing set
+     * fileType = 0 -> csv; fileType = 1 -> arff                */
+    private static String getPath(String projName, int iteration, int setType, int fileType) {
+        switch (setType) {
+            case 0:
+                switch (fileType) {
+                    case 0:
+                        return projName + "_" + iteration + "/" + projName + "_" + iteration + "_training-set.csv";
+                    case 1:
+                        return projName + "_" + iteration + "/" + projName + "_" + iteration + "_training-set.arff";
+                    default:
+                        return null;
+                }
+            case 1:
+                switch (fileType) {
+                    case 0:
+                        return projName + "_" + iteration + "/" + projName + "_" + iteration + "_testing-set.csv";
+                    case 1:
+                        return projName + "_" + iteration + "/" + projName + "_" + iteration + "_testing-set.arff";
+                    default:
+                        return null;
+                }
+            default:
+                return null;
+        }
+    }
 
-        try {
-            fileWriterNoFS = new FileWriter(new File(reports.get(0).getDataset() + "-report-withoutFS.csv"));
+    public static void generateCSVForReportsWithoutFS(List<EvaluationReport> reports) throws ExecutionException {
+
+        try (FileWriter fileWriterNoFS = new FileWriter(new File(reports.get(0).getDataset() + "-report-withoutFS.csv"))) {
+
             fileWriterNoFS.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa");
             fileWriterNoFS.append("\n");
 
@@ -119,35 +136,18 @@ public class CSV {
                 }
             }
 
-        } catch (
-                IOException e) {
-            throw new RuntimeException(e);
         } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            try {
-                fileWriterNoFS.flush();
-                fileWriterNoFS.close();
-            } catch (IOException e) {
-                System.out.println("Error while flushing/closing fileWriter !!!");
-                e.printStackTrace();
-            }
+            throw new ExecutionException(e);
         }
 
     }
 
-    public static void generateCSVForReportsWithFS(List<EvaluationReport> reports) {
-        FileWriter fileWriter = null;
+    public static void generateCSVForReportsWithFS(List<EvaluationReport> reports) throws ExecutionException {
+        EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
+        List<List<EvaluationReport>> dividedReports = evaluationReportUtils.divideReportsBySearchMethod(reports);
 
-        try {
-            EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
-            List<List<EvaluationReport>> dividedReports = evaluationReportUtils.divideReportsBySearchMethod(reports);
-
-            for (List<EvaluationReport> list : dividedReports) {
-
-                if (fileWriter != null)
-                    fileWriter.flush();
-                fileWriter = new FileWriter(list.get(0).getDataset() + "-report-withFS-" + list.get(0).getFsSearchMethod().toString().toLowerCase() + ".csv");
+        for (List<EvaluationReport> list : dividedReports) {
+            try (FileWriter fileWriter = new FileWriter(list.get(0).getDataset() + "-report-withFS-" + list.get(0).getFsSearchMethod().toString().toLowerCase() + ".csv")) {
 
                 fileWriter.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa, Search Method").append("\n");
 
@@ -161,36 +161,23 @@ public class CSV {
                             + report.getKappa() + ", "
                             + report.getFsSearchMethod() + "\n");
                 }
-            }
 
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                fileWriter.flush();
-                fileWriter.close();
             } catch (IOException e) {
+                throw new ExecutionException(e);
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public static void generateCSVForReportsWithSampling(List<EvaluationReport> reports) {
+    public static void generateCSVForReportsWithSampling(List<EvaluationReport> reports) throws ExecutionException {
 
-        FileWriter fileWriter = null;
+        EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
+        List<List<EvaluationReport>> reportsWithSampling = evaluationReportUtils.divideReportsBySamplingMethod(reports);
 
-        try {
-            EvaluationReportUtils evaluationReportUtils = new EvaluationReportUtils();
-            List<List<EvaluationReport>> reportsWithSampling = evaluationReportUtils.divideReportsBySamplingMethod(reports);
+        for (List<EvaluationReport> list : reportsWithSampling) {
 
-            for (List<EvaluationReport> list : reportsWithSampling) {
-
-                if (fileWriter != null)
-                    fileWriter.flush();
-
-                fileWriter = new FileWriter(list.get(0).getDataset() + "-report-withFS-best_first-with-" + list.get(0).getSamplingMethod().toString().toLowerCase() + ".csv");
+            try (FileWriter fileWriter = new FileWriter(list.get(0).getDataset() + "-report-withFS-best_first-with-" + list.get(0).getSamplingMethod().toString().toLowerCase() + ".csv")) {
 
                 fileWriter.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa, Search Method, Sampling Method").append("\n");
 
@@ -207,25 +194,17 @@ public class CSV {
                             .append(", ").append(String.valueOf(report.getSamplingMethod()))
                             .append("\n");
                 }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                fileWriter.flush();
-                fileWriter.close();
-            } catch (IOException e) {
+
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
 
     public static void generateCSVForReportsWithCSC(List<EvaluationReport> reports) {
-        FileWriter fileWriter = null;
 
-        try {
 
-            fileWriter = new FileWriter(reports.get(0).getDataset() + "-report-with-CSC.csv");
+        try (FileWriter fileWriter = new FileWriter(reports.get(0).getDataset() + "-report-with-CSC.csv")) {
 
             fileWriter.append("Dataset, Iteration, Classifier, Precision, Recall, AUC, Kappa, Search Method").append("\n");
 
@@ -244,22 +223,15 @@ public class CSV {
 
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            try {
-                fileWriter.flush();
-                fileWriter.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
 
-    public static void generateCSVForVersions(List<Release> releases, String projName) {
-        FileWriter fileWriter = null;
+    public static void generateCSVForVersions(List<Release> releases, String projName) throws ExecutionException {
 
-        try {
-            fileWriter = new FileWriter(projName + "VersionInfo.csv");
+
+        try (FileWriter fileWriter = new FileWriter(projName + "VersionInfo.csv")) {
+
             fileWriter.append("Index, Version Name, Date");
             fileWriter.append("\n");
 
@@ -273,15 +245,7 @@ public class CSV {
             }
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
-        } finally {
-            try {
-                fileWriter.flush();
-                fileWriter.close();
-            } catch (IOException e) {
-                System.out.println("Error while flushing/closing fileWriter !!!");
-                e.printStackTrace();
-            }
+            throw new ExecutionException(e);
         }
     }
 }

@@ -8,6 +8,8 @@ import java.util.List;
 
 public class CommitUtils {
 
+    private CommitUtils() {}
+
     public static List<RevCommit> filterCommitsAssociatedToTicket(Ticket ticket, List<RevCommit> allCommits) {
         List<RevCommit> assCommits = new ArrayList<>();
 

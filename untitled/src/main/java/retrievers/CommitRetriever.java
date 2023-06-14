@@ -101,9 +101,6 @@ public class CommitRetriever {
                 }
             }
 
-            logger.info("Last commits initialized.");
-            logger.info("getting the classes");
-
             for (Release release : releases) {
                 if (!release.getAssociatedCommits().isEmpty()) {
                     allClasses.addAll(getClassesFromReleaseCommit(release));
@@ -112,25 +109,10 @@ public class CommitRetriever {
 
             logger.info("Retrieved classes: {}", allClasses.size());
 
-            int count;
-
-            for (Release release : releases) {
-                count = 0;
-                for (Class c : allClasses) {
-                    if (c.getRelease().getId() == release.getId())
-                        count++;
-                }
-
-                logger.info("Classes for release {}: {}", release.getId(), count);
-            }
-
             retrieveCommitsForClasses(commits, allClasses);
-
-            logger.info("commits associated to classes: {}", commits.size());
-
             labelBuggyClasses(allTickets, commits, allClasses, releases);
 
-            count = 0;
+            int count = 0;
 
             for (Class cls : allClasses) {
                 if (cls.isBuggy()) {

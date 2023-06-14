@@ -7,6 +7,8 @@ import model.Ticket;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import proportion.Proportion;
 
 import java.io.IOException;
@@ -19,8 +21,12 @@ import static utils.JSON.readJsonFromUrl;
 
 public class TicketRetriever {
 
+    private static final Logger logger = LoggerFactory.getLogger(TicketRetriever.class);
 
-    public static ArrayList<Ticket> retrieveTickets(String projName, int numReleases) throws JSONException, IOException, ExecutionException {
+    private TicketRetriever() {}
+
+
+    public static List<Ticket> retrieveTickets(String projName, int numReleases) throws JSONException, IOException, ExecutionException {
         int startAt = 0;
 
         ArrayList<Ticket> tickets = new ArrayList<>();
@@ -31,7 +37,7 @@ public class TicketRetriever {
 
         LocalDateTime lastDate = releases.get(releases.size() - 1).getDate();
 
-        System.out.println("Retrieving tickets for project " + projName);
+        logger.info("Retrieving tickets for project {}", projName);
 
         do {
             String query = "search?jql=project=" + projName + "+and+type=bug+and+(status=closed+or+status=resolved)+and+resolution=fixed&maxResults=1000&startAt=" + startAt;
@@ -61,19 +67,19 @@ public class TicketRetriever {
             }
         }
 
-        System.out.println("Tickets having proportion (project " + projName + "):" + count + " over " + tickets.size() + " tickets");
+        logger.info("Tickets having proportion (project {}): {} over {} tickets", projName,  count, tickets.size());
 
         Proportion.coldStartProportion(tickets, projName);
 
         count = 0;
 
-        System.out.println("Tickets having injected version: " + count);
+        logger.info("Tickets having injected version: {}", count);
 
         return tickets;
 
     }
 
-    public static Ticket getTicket(JSONObject ticketInfo, List<Release> rels, LocalDateTime lastDate) throws JSONException, InvalidTicketException, IOException {
+    public static Ticket getTicket(JSONObject ticketInfo, List<Release> rels, LocalDateTime lastDate) throws JSONException, InvalidTicketException {
 
         Ticket ticket = new Ticket();
 
@@ -172,10 +178,8 @@ public class TicketRetriever {
 
     public static List<Ticket> getTicketsWithAV(List<Ticket> tickets) {
 
-        //List<Ticket> filteredTickets = filterTickets(tickets, releases);
         List<Ticket> ticketsWithAV = new ArrayList<>();
 
-        //for (Ticket ticket : filteredTickets) {
         for (Ticket ticket : tickets) {
             if (ticket.getFixVersion() == null) {
                 ticketsWithAV.add(ticket);
@@ -189,19 +193,6 @@ public class TicketRetriever {
         }
 
         return ticketsWithAV;
-    }
-
-    private static List<Ticket> filterTickets(List<Ticket> tickets, List<Release> releases) {
-        List<Ticket> filteredList = new ArrayList<>();
-
-        for (Ticket ticket : tickets) {
-            //if (!ticket.injectedVersion.getDate().isAfter(releases.get(releases.size() - 1).getDate()))
-            if (!ticket.getOpeningVersion().getDate().isAfter(releases.get(releases.size() - 1).getDate()))
-                filteredList.add(ticket);
-
-        }
-
-        return filteredList;
     }
 
 }
