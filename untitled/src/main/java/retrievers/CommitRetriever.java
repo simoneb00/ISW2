@@ -42,7 +42,7 @@ public class CommitRetriever {
 
     private static Repository repository;
 
-    public static List<Class> retrieveCommits(String projName, List<Ticket> allTickets, int numVersions) throws IOException, JSONException, GitAPIException, ExecutionException {
+    public static List<Class> retrieveCommits(String projName, List<Ticket> allTickets, int numVersions) throws IOException, JSONException, ExecutionException, ParseException, GitAPIException {
 
         List<Class> allClasses = new ArrayList<>();
         List<RevCommit> commits = new ArrayList<>();
@@ -84,56 +84,50 @@ public class CommitRetriever {
 
                 }
             }
-
-            logger.info("Number of total commits: {}", commits.size());
-
-            // initializing last commits for all releases
-            for (int i = 0; i < releases.size(); i++) {
-
-                LocalDateTime firstDate;
-
-                if (i == 0) {
-                    firstDate = LocalDateTime.of(1970, 1, 1, 0, 0);
-                    initReleaseCommits(releases.get(i), firstDate, commits);
-                } else {
-                    firstDate = releases.get(i - 1).getDate();
-                    initReleaseCommits(releases.get(i), firstDate, commits);
-                }
-            }
-
-            for (Release release : releases) {
-                if (!release.getAssociatedCommits().isEmpty()) {
-                    allClasses.addAll(getClassesFromReleaseCommit(release));
-                }
-            }
-
-            logger.info("Retrieved classes: {}", allClasses.size());
-
-            retrieveCommitsForClasses(commits, allClasses);
-            labelBuggyClasses(allTickets, commits, allClasses, releases);
-
-            int count = 0;
-
-            for (Class cls : allClasses) {
-                if (cls.isBuggy()) {
-                    count++;
-                }
-            }
-
-            logger.info("All classes: {}", allClasses.size());
-            logger.info("Buggy classes: {}", count);
-
-            ComputeMetrics cm = new ComputeMetrics();
-            cm.computeMetrics(allClasses, projName);
-
-
         } catch (GitAPIException e) {
-            e.printStackTrace();
-        } catch (ParseException | ExecutionException e) {
             throw new ExecutionException(e);
         }
 
+        logger.info("Number of total commits: {}", commits.size());
+
+        // initializing last commits for all releases
+        for (int i = 0; i < releases.size(); i++) {
+            initializeReleaseCommits(releases, i, commits);
+        }
+
+        for (Release release : releases) {
+            initCommitsAssociatedWithRelease(release, allClasses);
+        }
+
+        logger.info("Retrieved classes: {}", allClasses.size());
+
+        retrieveCommitsForClasses(commits, allClasses);
+        labelBuggyClasses(allTickets, commits, allClasses, releases);
+
+
+        ComputeMetrics cm = new ComputeMetrics();
+        cm.computeMetrics(allClasses, projName);
+
+
         return allClasses;
+    }
+
+    private static void initCommitsAssociatedWithRelease(Release release, List<Class> allClasses) throws IOException {
+        if (!release.getAssociatedCommits().isEmpty()) {
+            allClasses.addAll(getClassesFromReleaseCommit(release));
+        }
+    }
+
+    private static void initializeReleaseCommits(List<Release> releases, int i, List<RevCommit> commits) {
+        LocalDateTime firstDate;
+
+        if (i == 0) {
+            firstDate = LocalDateTime.of(1970, 1, 1, 0, 0);
+            initReleaseCommits(releases.get(i), firstDate, commits);
+        } else {
+            firstDate = releases.get(i - 1).getDate();
+            initReleaseCommits(releases.get(i), firstDate, commits);
+        }
     }
 
     private static void labelClasses(String className, Ticket ticket, List<Class> allClasses) {
@@ -180,8 +174,9 @@ public class CommitRetriever {
 
         List<String> modifiedClasses = new ArrayList<>();
 
-        try (DiffFormatter diffFormatter = new DiffFormatter(DisabledOutputStream.INSTANCE)) {  // we're not interested in the output
-            ObjectReader reader = repository.newObjectReader();
+        try (DiffFormatter diffFormatter = new DiffFormatter(DisabledOutputStream.INSTANCE);    // we're not interested in the output
+             ObjectReader reader = repository.newObjectReader()
+        ) {
 
             CanonicalTreeParser treeParser = new CanonicalTreeParser();
             ObjectId tree = commit.getTree();

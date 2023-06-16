@@ -69,7 +69,8 @@ public class CSV {
             String filenameARFF = getPath(projName, iteration, 0, 1);
             File trainFile = new File(filenameCSV);
             trainFile.getParentFile().mkdirs();
-            trainFile.createNewFile();
+            boolean res = trainFile.createNewFile();
+            assert res;
             populateFile(classes, trainFile);
             ARFF.generateARFF(filenameARFF, classes);
             return trainFile;
@@ -78,7 +79,8 @@ public class CSV {
             String filenameARFF = getPath(projName, iteration, 1, 1);
             File testFile = new File(filenameCSV);
             testFile.getParentFile().mkdirs();
-            testFile.createNewFile();
+            boolean res = testFile.createNewFile();
+            assert res;
             populateFile(classes, testFile);
             ARFF.generateARFF(filenameARFF, classes);
             return testFile;
@@ -126,10 +128,10 @@ public class CSV {
                     String row = report.getDataset().substring(0, report.getDataset().length() - 3).toLowerCase() + ", "
                             + report.getIteration() + ", "
                             + report.getClassifier().toString().toLowerCase() + ", "
-                            + report.getPrecision() + ", "
-                            + report.getRecall() + ", "
-                            + report.getAuc() + ", "
-                            + report.getKappa();
+                            + report.getMetrics().getPrecision() + ", "
+                            + report.getMetrics().getRecall() + ", "
+                            + report.getMetrics().getAuc() + ", "
+                            + report.getMetrics().getKappa();
 
                     fileWriterNoFS.append(row);
                     fileWriterNoFS.append("\n");
@@ -139,6 +141,8 @@ public class CSV {
         } catch (Exception e) {
             throw new ExecutionException(e);
         }
+
+        logger.info("generated CSV without FS");
 
     }
 
@@ -155,19 +159,22 @@ public class CSV {
                     fileWriter.append(report.getDataset() + ", "
                             + report.getIteration() + ", "
                             + report.getClassifier().toString().toLowerCase() + ", "
-                            + report.getPrecision() + ", "
-                            + report.getRecall() + ", "
-                            + report.getAuc() + ", "
-                            + report.getKappa() + ", "
+                            + report.getMetrics().getPrecision() + ", "
+                            + report.getMetrics().getRecall() + ", "
+                            + report.getMetrics().getAuc() + ", "
+                            + report.getMetrics().getKappa() + ", "
                             + report.getFsSearchMethod() + "\n");
                 }
 
             } catch (IOException e) {
                 throw new ExecutionException(e);
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("Found error in generating the report for {}", list.get(0).getFsSearchMethod().toString().toLowerCase());
+                throw new ExecutionException(e);
             }
         }
+
+        logger.info("generated CSV for FS");
     }
 
     public static void generateCSVForReportsWithSampling(List<EvaluationReport> reports) throws ExecutionException {
@@ -186,22 +193,24 @@ public class CSV {
                     fileWriter.append(report.getDataset().substring(0, report.getDataset().length() - 3).toLowerCase())
                             .append(", ").append(String.valueOf(report.getIteration()))
                             .append(", ").append(report.getClassifier().toString().toLowerCase())
-                            .append(", ").append(String.valueOf(report.getPrecision()))
-                            .append(", ").append(String.valueOf(report.getRecall()))
-                            .append(", ").append(String.valueOf(report.getAuc()))
-                            .append(", ").append(String.valueOf(report.getKappa()))
+                            .append(", ").append(String.valueOf(report.getMetrics().getPrecision()))
+                            .append(", ").append(String.valueOf(report.getMetrics().getRecall()))
+                            .append(", ").append(String.valueOf(report.getMetrics().getAuc()))
+                            .append(", ").append(String.valueOf(report.getMetrics().getKappa()))
                             .append(", ").append(String.valueOf(report.getFsSearchMethod()))
                             .append(", ").append(String.valueOf(report.getSamplingMethod()))
                             .append("\n");
                 }
 
             } catch (Exception e) {
-                e.printStackTrace();
+                throw new ExecutionException(e);
             }
         }
+
+        logger.info("generated CSV for sampling");
     }
 
-    public static void generateCSVForReportsWithCSC(List<EvaluationReport> reports) {
+    public static void generateCSVForReportsWithCSC(List<EvaluationReport> reports) throws ExecutionException {
 
 
         try (FileWriter fileWriter = new FileWriter(reports.get(0).getDataset() + "-report-with-CSC.csv")) {
@@ -213,17 +222,19 @@ public class CSV {
                 fileWriter.append(report.getDataset().substring(0, report.getDataset().length() - 3).toLowerCase())
                         .append(", ").append(String.valueOf(report.getIteration()))
                         .append(", ").append(report.getClassifier().toString().toLowerCase())
-                        .append(", ").append(String.valueOf(report.getPrecision()))
-                        .append(", ").append(String.valueOf(report.getRecall()))
-                        .append(", ").append(String.valueOf(report.getAuc()))
-                        .append(", ").append(String.valueOf(report.getKappa()))
+                        .append(", ").append(String.valueOf(report.getMetrics().getPrecision()))
+                        .append(", ").append(String.valueOf(report.getMetrics().getRecall()))
+                        .append(", ").append(String.valueOf(report.getMetrics().getAuc()))
+                        .append(", ").append(String.valueOf(report.getMetrics().getKappa()))
                         .append(", ").append(String.valueOf(report.getFsSearchMethod()))
                         .append("\n");
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new ExecutionException(e);
         }
+
+        logger.info("Generated report for CSC");
     }
 
 

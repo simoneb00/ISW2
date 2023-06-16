@@ -100,37 +100,4 @@ public class EvaluationReportUtils {
 
         return list;
     }
-
-    public List<EvaluationReport> getReportsWithSampling(List<EvaluationReport> reports) {
-        List<EvaluationReport> list = new ArrayList<>();
-        for (EvaluationReport report : reports) {
-            if (report.getSamplingMethod() != null)
-                list.add(report);
-        }
-        return list;
-    }
-
-    /*
-     *  this method, given a list of reports regarding the same classifier on different iterations, computes the mean precision, recall, AUC and kappa
-     */
-    public EvaluationReport getMeanValuesForClassifier(List<EvaluationReport> reports) {
-        double meanPrecision = 0;
-        double meanRecall = 0;
-        double meanAUC = 0;
-        double meanKappaValue = 0;
-
-        for (EvaluationReport report : reports) {
-            meanPrecision += report.getPrecision();
-            meanRecall += report.getRecall();
-            meanAUC += report.getAuc();
-            meanKappaValue += report.getKappa();
-        }
-
-        meanPrecision = meanPrecision / reports.size();
-        meanRecall = meanRecall / reports.size();
-        meanAUC = meanAUC / reports.size();
-        meanKappaValue = meanKappaValue / reports.size();
-
-        return new EvaluationReport(0, reports.get(0).getClassifier(), reports.get(0).getDataset(), meanPrecision, meanRecall, meanAUC, meanKappaValue, reports.get(0).isFeatureSelection(), reports.get(0).getFsSearchMethod(), reports.get(0).getSamplingMethod(), false);
-    }
 }

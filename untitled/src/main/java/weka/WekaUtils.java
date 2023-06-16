@@ -1,7 +1,6 @@
 package weka;
 
-import com.opencsv.CSVReader;
-import com.opencsv.exceptions.CsvValidationException;
+import exceptions.ExecutionException;
 import weka.core.Attribute;
 import weka.core.Instances;
 import weka.core.converters.ArffLoader;
@@ -9,24 +8,23 @@ import weka.core.converters.ArffSaver;
 import weka.core.converters.CSVLoader;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.Remove;
-import weka.filters.unsupervised.attribute.RenameNominalValues;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class WekaUtils {
 
-    public File CSVToARFF(File CSVFile) {
+    public File csvToARFF(File csvFile) throws ExecutionException {
 
-        System.out.println("path: " + CSVFile.getAbsolutePath());
-        String arffFileName = CSVFile.getPath().substring(0, CSVFile.getPath().length() - 4) + ".arff";
+        String arffFileName = csvFile.getPath().substring(0, csvFile.getPath().length() - 4) + ".arff";
         File arff = new File(arffFileName);
 
         try {
 
             CSVLoader loader = new CSVLoader();
-            loader.setSource(CSVFile);
+            loader.setSource(csvFile);
             Instances data = loader.getDataSet();
 
             ArffSaver saver = new ArffSaver();
@@ -35,15 +33,13 @@ public class WekaUtils {
             saver.writeBatch();
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new ExecutionException(e);
         }
 
         return arff;
     }
 
-    public void removeAttribute(File arff) {
-
-        System.out.println("Removing attribute for file " + arff.getAbsolutePath());
+    public void removeAttribute(File arff) throws ExecutionException {
 
         // loading the arff file in order to remove the attribute 'File Name'
         ArffLoader arffLoader = new ArffLoader();
@@ -52,7 +48,7 @@ public class WekaUtils {
 
             Instances arffData = arffLoader.getDataSet();
 
-            String options[] = new String[2];
+            String[] options = new String[2];
             options[0] = "-R";
             options[1] = "1, 2";
 
@@ -69,14 +65,12 @@ public class WekaUtils {
             saver.setFile(arff);
             saver.writeBatch();
 
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new ExecutionException(e);
         }
     }
 
-    public void adjustAttributes(File arff) {
+    public void adjustAttributes(File arff) throws ExecutionException {
 
         ArffLoader arffLoader = new ArffLoader();
 
@@ -100,7 +94,7 @@ public class WekaUtils {
             saver.writeBatch();
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new ExecutionException(e);
         }
     }
 }

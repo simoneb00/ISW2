@@ -50,7 +50,7 @@ public class TicketRetriever {
                 try {
                     tickets.add(getTicket(issues.getJSONObject(i), releases, lastDate));
                 } catch (JSONException e) {
-                    e.printStackTrace();
+                    throw new ExecutionException(e);
                 } catch (InvalidTicketException e) {
                     // ignore: invalid ticket
                 }
@@ -129,6 +129,12 @@ public class TicketRetriever {
             }
         }
 
+        setIV(ticket);
+
+        return ticket;
+    }
+
+    private static void setIV(Ticket ticket) {
         if (ticket.getAffectedVersions() != null && !ticket.getAffectedVersions().isEmpty()) {
 
             // ASSUMPTION: we take as IV the earliest AV (i.e., the release in AV with the lowest id)
@@ -145,8 +151,6 @@ public class TicketRetriever {
                 Proportion.computeProportion(ticket);
             }
         }
-
-        return ticket;
     }
 
     public static float getProportionMean(List<Ticket> tickets) {
@@ -159,6 +163,7 @@ public class TicketRetriever {
             }
         }
 
+        assert count != 0;
         return sum / count;
     }
 

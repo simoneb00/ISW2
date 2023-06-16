@@ -54,30 +54,34 @@ public class Proportion {
             "KAFKA"
     );
 
-    public static void coldStartProportion(List<Ticket> tickets, String projName) throws JSONException, IOException, ExecutionException {
+    private static void initFile(String projName) throws ExecutionException {
+        try (FileWriter fileWriter = new FileWriter("proportion.Proportion" + projName + ".csv")) {
+            logger.warn("Proportion.csv does not exist for {}", projName);
+
+
+            fileWriter.append("Project, Proportion Value");
+            fileWriter.append("\n");
+
+            for (String project : allProjects) {
+                if (!project.equals(projName)) {
+                    fileWriter.append(project).append(", ").append(String.valueOf(getProportionForProject(project)));
+                    fileWriter.append("\n");
+                }
+            }
+        } catch (IOException | JSONException e) {
+            throw new ExecutionException(e);
+        }
+    }
+
+    public static void coldStartProportion(List<Ticket> tickets, String projName) throws JSONException, ExecutionException, IOException {
 
         List<Release> releases = GetReleaseInfo.getReleaseInfo(projName, true, 0, false);
-
 
         Path proportionFile = Paths.get("Proportion" + projName + ".csv");
 
         if (!Files.exists(proportionFile)) {
-            FileWriter fileWriter = new FileWriter("proportion.Proportion" + projName + ".csv");
-                logger.warn("Proportion.csv does not exist for {}", projName);
-
-
-                fileWriter.append("Project, Proportion Value");
-                fileWriter.append("\n");
-
-                for (String project : allProjects) {
-                    if (!project.equals(projName)) {
-                        fileWriter.append(project).append(", ").append(String.valueOf(getProportionForProject(project)));
-                        fileWriter.append("\n");
-                    }
-                }
-
+            initFile(projName);
         }
-
 
         List<Float> proportionValues = readProportionFile(projName);
 
@@ -89,7 +93,7 @@ public class Proportion {
 
         for (Ticket ticket : tickets) {
             if (ticket.getInjectedVersion() == null && ticket.getFixVersion() != null) {
-                /* TODO improve */
+                /* ASSUMPTION: if ov = fv, then fv - ov = 1 */
                 if (ticket.getOpeningVersion().getId() == ticket.getFixVersion().getId())
                     ticket.setInjectedVersion(releases.get(Math.max(0, ticket.getFixVersion().getId() - 3)));
                 else
@@ -141,7 +145,7 @@ public class Proportion {
         }
 
         if (ticket.getInjectedVersion().getId() <= ticket.getOpeningVersion().getId() && ticket.getFixVersion().getId() == ticket.getOpeningVersion().getId())
-            ticket.setProportion(ticket.getFixVersion().getId() - ticket.getInjectedVersion().getId());
+            ticket.setProportion((float)ticket.getFixVersion().getId() - ticket.getInjectedVersion().getId());
         else if (ticket.getInjectedVersion().getId() <= ticket.getOpeningVersion().getId() && ticket.getOpeningVersion().getId() < ticket.getFixVersion().getId()) {
             ticket.setProportion((float) (ticket.getFixVersion().getId() - ticket.getInjectedVersion().getId()) / (ticket.getFixVersion().getId() - ticket.getOpeningVersion().getId()));
         }
@@ -170,7 +174,7 @@ public class Proportion {
                 try {
                     tickets.add(TicketRetriever.getTicket(issues.getJSONObject(i), releases, releases.get(releases.size() - 1).getDate()));
                 } catch (JSONException e) {
-                    e.printStackTrace();
+                    throw new ExecutionException(e);
                 } catch (InvalidTicketException e) {
                     // ignore: invalid ticket
                 }
