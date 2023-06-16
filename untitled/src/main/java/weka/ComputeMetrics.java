@@ -21,22 +21,6 @@ import java.util.regex.Pattern;
 public class ComputeMetrics {
     private String projName;
 
-    /*
-     *  This class has the responsibility to compute all metrics for all classes
-     *  The metrics here considered are:
-     *  - size
-     *  - NAuth
-     *  - NFix
-     *  - NR
-     *  - LOC added
-     *  - max LOC added
-     *  - average LOC added
-     *  - churn
-     *  - maxChurn
-     *  - averageChurn
-     *
-     */
-
     private void setSize(Class c) {
         Matcher m = Pattern.compile("\r\n|\r|\n").matcher(c.getImplementation());
         int lines = 0;
