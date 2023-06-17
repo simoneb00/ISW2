@@ -56,13 +56,13 @@ public class Weka {
      *  Classifiers: Naive Bayes, Random Forest, IBk
      *  Configurations:
      *  - without any filter
-     *  - feature selection:
+     *  - feature selection (best first):
      *     - backward search
      *     - forward search
-     *     - best first
-     *  - feature selection (best first) + oversampling
-     *  - feature selection (best first) + undersampling
-     *
+     *     - bidirectional
+     *  - feature selection (best first, bidirectional) + oversampling
+     *  - feature selection (best first, bidirectional) + undersampling
+     *  - cost sensitive classification (CFN = 10*CFP)
      */
 
     public void classify(String arffTrainingSet, String arffTestingSet, int iteration, String projName) throws IOException, EmptyARFFException, ExecutionException {
@@ -212,7 +212,7 @@ public class Weka {
             reportWithFS.setMetrics(metrics);
             reportsWithFS.add(reportWithFS);
 
-            /* Best First */
+            /* Bidirectional */
             bf.setOptions(new String[] {"-D", "2"});
             filter.setSearch(bf);
 
